@@ -1,2 +1,2 @@
-# counting_to_addition
-Neural model of progression from counting to addition
+# Progressing from Counting to Addition
+Neural model of progression from counting to addition for COGSCI600
