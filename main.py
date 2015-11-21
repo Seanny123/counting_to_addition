@@ -1,6 +1,10 @@
 import nengo
 from nengo import spa
+
+import numpy
 from collections import OrderedDict
+
+print(numpy.version.version)
 
 D = 64
 vocab = spa.Vocabulary(D, unitary=["ONE"])
@@ -20,7 +24,11 @@ num_ord_filt = OrderedDict(number_ordered.items()[:number_range])
 
 print(join_num)
 
-model = spa.SPA(vocab)
+vocab.add("ALLNUM", vocab.parse(join_num))
+
+vocab.add("TRANS", vocab.parse("CNT1+CNT2"))
+
+model = spa.SPA(vocabs=[vocab])
 
 with model:
     model.q1 = spa.State(D)
@@ -32,10 +40,32 @@ with model:
     model.op_state = spa.State(D)
 
     model.count_res = spa.State(D, feedback=1)
-    model.count_fin = spa.State(D, feedback=1)
+    model.res_mem = spa.State(D, feedback=1)
     model.count_tot = spa.State(D, feedback=1)
+    model.tot_mem = spa.State(D, feedback=1)
+    model.count_fin = spa.State(D, feedback=1)
 
     model.comp_tot_fin = spa.Compare(D)
+
+    def q1_func(t):
+        if(t < 0.1):
+            return "TWO"
+        else:
+            return "0"
+
+    def q2_func(t):
+        if(t < 0.1):
+            return "TWO"
+        else:
+            return "0"
+
+    def op_state_func(t):
+        if(t < 0.1):
+            return "NONE"
+        else:
+            return "0"
+
+    model.input = spa.Input(q1=q1_func, q2=q2_func, op_state=op_state_func)
 
     # TODO: add the max count
     """
@@ -51,14 +81,24 @@ with model:
     bigger_finder = nengo.Ensemble(400, D, function=bigger_func)
     """
 
-    # Probably can't do this...
+    # reload
     actions = spa.Actions(
         # If the input isn't blank, read it in
-        on_input="dot(q1, %s) + dot(q2, %s) - dot(op_state, COUNTING)--> count_res = q1*ONE, count_tot = ONE, count_fin = q2" % (join_num, join_num,),
+        on_input=
+        "0.5*dot(q1, ALLNUM) + 0.5*dot(q2, ALLNUM) - 1.5*dot(op_state, TRANS) + dot(op_state, NONE) "
+        "--> count_res = q1*ONE, count_tot = ONE, count_fin = q2, op_state = CNT2",
         # If we have finished incrementing, keep incrementing
-        increment="dot(op_state, COUNTING) - comp_tot_fin --> count_res = count_res * ONE, count_tot = count_tot * ONE",
+        increment_1=
+        "2*dot(op_state, CNT1) - comp_tot_fin "
+        "--> count_res = res_mem * ONE * 2, count_tot = tot_mem * ONE * 2, op_state = CNT2",
+        increment_2=
+        "2*dot(op_state, CNT2) - comp_tot_fin "
+        "--> res_mem = count_res, tot_mem = count_tot, op_state = CNT1, "
+        "q1 = NONE, q2 = NONE",
         # If we're done incrementing write it to the answer
-        answer="comp_tot_fin - dot(op_state, COUNTING) --> answer = count_res, op_state = NONE"
+        answer=
+        "1.5*comp_tot_fin - dot(op_state, TRANS)"
+        "--> answer = count_res, op_state = NONE"
     )
 
     model.bg = spa.BasalGanglia(actions)
