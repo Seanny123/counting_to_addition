@@ -1,8 +1,11 @@
 import nengo
 from nengo import spa
-
 import numpy as np
+import ipdb
+
 from collections import OrderedDict
+
+from inc_network import AssocNet
 
 D = 64
 rng = np.random.RandomState(0)
@@ -25,62 +28,48 @@ print(join_num)
 
 vocab.parse("CNT1+CNT2+CMP")
 
-num_vocab = vocab.create_subset(num_ord_filt.keys())
+num_vocab = vocab.create_subset(num_ord_filt.keys()+["NONE"])
 state_vocab = vocab.create_subset(["NONE", "CNT1", "CNT2", "CMP"])
 
 model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 
 with model:
-    model.q1 = spa.State(D)
-    model.q2 = spa.State(D)
-    model.answer = spa.State(D)
+    model.q1 = spa.State(D, vocab=num_vocab)
+    model.q2 = spa.State(D, vocab=num_vocab)
+    model.answer = spa.State(D, vocab=num_vocab)
     # TODO: add connection from question to answer, maybe intermediate pop?
     # Also going to need a bit of a gate...
 
-    model.op_state = spa.State(D)
+    model.op_state = spa.State(D, vocab=state_vocab, feedback=1, feedback_synapse=0.01)
 
-    # TODO: Make this adaptively large
-    # from patterns
-    input_keys = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR']
 
-    # to patterns
-    output_keys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']
+    model.count_res = IncNet(D, num_vocab, label="result")
+    model.count_tot = IncNet(D, num_vocab, label="total")
 
-    model.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
-                                              input_keys=input_keys, output_keys=output_keys,
-                                              wta_output=True)
-    model.count_res = spa.State(D, feedback=1)
-    model.res_mem = spa.State(D, feedback=1)
-
-    model.tot_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
-                                              input_keys=input_keys, output_keys=output_keys,
-                                              wta_output=True)
-    model.count_tot = spa.State(D, feedback=1)
-    model.tot_mem = spa.State(D, feedback=1)
-
-    model.count_fin = spa.State(D, feedback=1)
+    model.count_fin = spa.State(D, vocab=num_vocab, feedback=1)
 
     model.comp_tot_fin = spa.Compare(D)
 
+    step = 0.1
     def q1_func(t):
-        if(t < 0.1):
+        if(t < step):
             return "TWO"
         else:
             return "0"
 
     def q2_func(t):
-        if(t < 0.1):
+        if(t < step):
             return "TWO"
         else:
             return "0"
 
     def op_state_func(t):
-        if(t < 0.1):
+        if(t < 0.05):
             return "NONE"
         else:
             return "0"
 
-    model.input = spa.Input(q1=q1_func, q2=q2_func, op_state=op_state_func)
+    model.input = spa.Input(q1=q1_func, q2=q2_func)
 
     # TODO: add the max count
     """
@@ -96,21 +85,12 @@ with model:
     bigger_finder = nengo.Ensemble(400, D, function=bigger_func)
     """
 
-
-    # Even with preset states this routing is fucked
     actions = spa.Actions(
         # If the input isn't blank, read it in
         on_input=
-        "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - dot(op_state, CNT1+CNT2+CMP) + dot(op_state, NONE))/1.5 "
-        "--> count_res = q1*ONE, count_tot = ONE, count_fin = q2, op_state = CMP" % (join_num, join_num,),
-        # If we have finished incrementing, keep incrementing
-        increment_1=
-        "dot(op_state, CNT1) - comp_tot_fin "
-        "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = CNT2",
-        increment_2=
-        "dot(op_state, CNT2) - comp_tot_fin "
-        "--> res_mem = count_res, tot_mem = count_tot, op_state = CMP ",
-        # If not done, keep incrementing
+        "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - 1.5*dot(op_state, CNT1+CNT2+CMP) + dot(op_state, NONE))/1.5 "
+        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP" % (join_num, join_num,),
+        # If we're not done incrementing, then keep counting
         cmp_fail=
         "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin "
         "--> op_state = CNT1",
@@ -118,16 +98,39 @@ with model:
         cmp_good=
         "dot(op_state, CMP) + comp_tot_fin"
         "--> answer = count_res, op_state = NONE"
+        # load value into mem
+        load_1=
+        "dot(op_state, CNT1) - comp_tot_fin "
+        "--> op_state = CNT2",
+        # clear old mem?
+        increment_2=
+        "dot(op_state, CNT2) - comp_tot_fin "
+        "--> op_state = CMP",
+
     )
 
     model.bg = spa.BasalGanglia(actions)
     model.thal = spa.Thalamus(model.bg)
 
+    # So... Apparently, the gates aren't supposed to go to -1...
+    # Maybe I should add a thresholding population?
+    nengo.Connection(model.op_state.output, model.count_res.mem1.gate,
+                     transform=np.array([vocab.parse("CNT2").v * 2]))
+    nengo.Connection(model.op_state.output, model.count_res.mem2.gate,
+                     transform=np.array([vocab.parse("CNT1+NONE").v * 2]))
+
+    nengo.Connection(model.op_state.output, model.count_tot.mem1.gate,
+                     transform=np.array([vocab.parse("CNT2").v * 2]))
+    nengo.Connection(model.op_state.output, model.count_tot.mem2.gate,
+                     transform=np.array([vocab.parse("CNT1+NONE").v * 2]))
+
+
+    # TODO: add the dot transform
     cortical_actions = spa.Actions(
-        "count_res = res_assoc",
-        "count_tot = tot_assoc",
         "comp_tot_fin_A = count_fin",
         "comp_tot_fin_B = count_tot"
     )
 
     model.cortical = spa.Cortical(cortical_actions)
+
+# I can't tell if it's the subvocab not working or my damn plots
