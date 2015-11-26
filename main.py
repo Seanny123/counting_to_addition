@@ -4,6 +4,7 @@ from nengo import spa
 import numpy as np
 from collections import OrderedDict
 
+less_D = 16
 D = 64
 rng = np.random.RandomState(0)
 vocab = spa.Vocabulary(D, unitary=["ONE"], rng=rng)
@@ -28,6 +29,9 @@ vocab.parse("CNT1+CNT2+CMP")
 num_vocab = vocab.create_subset(num_ord_filt.keys())
 state_vocab = vocab.create_subset(["NONE", "CNT1", "CNT2", "CMP"])
 
+ramp_vocab = spa.Vocabulary(less_D)
+ramp_vocab.parse("START+RESET")
+
 model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 
 with model:
@@ -35,7 +39,6 @@ with model:
     model.q2 = spa.State(D)
     model.answer = spa.State(D)
     # TODO: add connection from question to answer, maybe intermediate pop?
-    # Also going to need a bit of a gate...
 
     model.op_state = spa.State(D)
 
@@ -59,6 +62,13 @@ with model:
     model.tot_mem = spa.State(D, feedback=1)
 
     model.count_fin = spa.State(D, feedback=1)
+
+    # Can I do this without using a vocab?
+    # Can a production system output a scalar value?
+    model.inc_1 = spa.State(less_D, vocab=ramp_vocab)
+    model.reset_1 = spa.State(less_D, vocab=ramp_vocab)
+
+
 
     model.comp_tot_fin = spa.Compare(D)
 
@@ -102,11 +112,15 @@ with model:
         # If the input isn't blank, read it in
         on_input=
         "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - dot(op_state, CNT1+CNT2+CMP) + dot(op_state, NONE))/1.5 "
-        "--> count_res = q1*ONE, count_tot = ONE, count_fin = q2, op_state = CMP" % (join_num, join_num,),
+        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP" % (join_num, join_num,),
         # If we have finished incrementing, keep incrementing
+        # So, two ramps? One for increment_1 and one for increment_2?
+        # increment_2 resets increment_1, cmp resets increment_2
+        # Delay the incrementing
         increment_1=
         "dot(op_state, CNT1) - comp_tot_fin "
         "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = CNT2",
+        # 
         increment_2=
         "dot(op_state, CNT2) - comp_tot_fin "
         "--> res_mem = count_res, tot_mem = count_tot, op_state = CMP ",
@@ -127,7 +141,7 @@ with model:
         "count_res = res_assoc",
         "count_tot = tot_assoc",
         "comp_tot_fin_A = count_fin",
-        "comp_tot_fin_B = count_tot"
+        "comp_tot_fin_B = tot_assoc"
     )
 
     model.cortical = spa.Cortical(cortical_actions)

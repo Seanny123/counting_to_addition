@@ -4,7 +4,7 @@ from spaun_config import SpaunConfig
 
 
 cfg = SpaunConfig()
-
+D = 16
 model = spa.SPA(label="ramp")
 
 with model:
@@ -19,3 +19,17 @@ with model:
                      synapse=cfg.mtr_ramp_synapse)
     nengo.Connection(reset, ramp_integrator.neurons,
                      transform=[[-3]] * cfg.n_neurons_cconv)
+
+    model.relay = spa.State(1)
+
+    model.in_state = spa.State(D)
+
+    c_act = spa.Actions("relay = 1")
+    model.cortical = spa.Cortical(c_act)
+
+    """
+    actions = spa.Actions()
+
+    model.bg = spa.BasalGanglia(actions)
+    model.thal = spa.Thalamus(model.bg)
+    """
