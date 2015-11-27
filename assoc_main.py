@@ -97,7 +97,7 @@ with model:
         # If we're done incrementing write it to the answer
         cmp_good=
         "dot(op_state, CMP) + comp_tot_fin"
-        "--> answer = count_res, op_state = NONE"
+        "--> answer = count_res, op_state = NONE",
         # load value into mem
         load_1=
         "dot(op_state, CNT1) - comp_tot_fin "

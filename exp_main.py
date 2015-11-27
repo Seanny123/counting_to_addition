@@ -63,7 +63,7 @@ with model:
             return "0"
 
     def op_state_func(t):
-        if(t < 0.05):
+        if(t < 0.1):
             return "NONE"
         else:
             return "0"
@@ -88,18 +88,18 @@ with model:
         # If the input isn't blank, read it in
         on_input=
         "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - 1.5*dot(op_state, CNT1+CNT2) + dot(op_state, NONE))/1.5 "
-        "--> count_res = q1*ONE, count_tot = ONE, count_fin = q2, op_state = CNT2" % (join_num, join_num,),
+        "--> count_res = q1*ONE, count_tot = ONE, count_fin = q2, op_state = 0.1*CNT2" % (join_num, join_num,),
         # load value into mem1
         load_1=
         "dot(op_state, CNT1) - comp_tot_fin "
-        "--> op_state = CNT2",
+        "--> op_state = 0.1*CNT2",
         increment_2=
         "dot(op_state, CNT2) - comp_tot_fin "
-        "--> op_state = CMP",
+        "--> op_state = 0.1*CMP",
         # If we're done incrementing write it to the answer
         cmp_fail=
         "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin "
-        "--> op_state = CNT1",
+        "--> op_state = 0.1*CNT1",
         cmp_good=
         "dot(op_state, CMP) + comp_tot_fin"
         "--> answer = count_res, op_state = NONE"

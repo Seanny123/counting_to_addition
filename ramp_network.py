@@ -17,7 +17,7 @@ class RampNet(Module):
             self.reset = nengo.Node(size_in=d)
 
             nengo.Connection(self.start, self.ramp_integrator,
-                             transform=np.array([ramp_vocab.parse("START").v * cfg.mtr_ramp_synapse * cfg.mtr_ramp_scale * 3]),
+                             transform=np.array([ramp_vocab.parse("START").v * cfg.mtr_ramp_synapse * cfg.mtr_ramp_scale * 4]),
                              synapse=cfg.mtr_ramp_synapse)
             nengo.Connection(self.ramp_integrator, self.ramp_integrator,
                              synapse=cfg.mtr_ramp_synapse)
@@ -25,4 +25,4 @@ class RampNet(Module):
                              transform= np.array([ramp_vocab.parse("RESET").v * -3] * cfg.n_neurons_cconv))
 
             self.inputs = dict(start=(self.start, ramp_vocab), reset=(self.reset, ramp_vocab),)
-            self.outputs = dict(default=(self.ramp_integrator, ramp_vocab))
+            self.outputs = dict(default=(self.ramp_integrator, None))

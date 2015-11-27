@@ -97,8 +97,7 @@ with model:
         "--> op_state = CNT2",
         increment_2=
         "dot(op_state, CNT2) - comp_tot_fin "
-        "--> op_state = CNT1,"
-        "q1 = 0, q2 = 0",
+        "--> op_state = CNT1",
         # If we're done incrementing write it to the answer
         answer=
         "1.5*comp_tot_fin - dot(op_state, CNT1+CNT2)"
