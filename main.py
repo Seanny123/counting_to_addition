@@ -31,41 +31,41 @@ vocab.parse("CNT1+CNT2+CMP")
 num_vocab = vocab.create_subset(num_ord_filt.keys())
 state_vocab = vocab.create_subset(["NONE", "CNT1", "CNT2", "CMP"])
 
-ramp_vocab = spa.Vocabulary(less_D)
+ramp_vocab = spa.Vocabulary(less_D, rng=rng)
 ramp_vocab.parse("START+RESET")
 
 model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 
 with model:
-    model.q1 = spa.State(D)
-    model.q2 = spa.State(D)
-    model.answer = spa.State(D)
+    model.q1 = spa.State(D, vocab=num_vocab)
+    model.q2 = spa.State(D, vocab=num_vocab)
+    model.answer = spa.State(D, vocab=num_vocab)
     # TODO: add connection from question to answer, maybe intermediate pop?
 
-    model.op_state = spa.State(D)
+    model.op_state = spa.State(D, vocab=state_vocab, feedback=1, feedback_synapse=0.2)
 
     # TODO: Make this adaptively large
     input_keys = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR']
     output_keys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']
 
-    model.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
+    model.res_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                               input_keys=input_keys, output_keys=output_keys,
                                               wta_output=True)
-    model.count_res = spa.State(D, feedback=1)
-    model.res_mem = spa.State(D, feedback=1)
+    model.count_res = spa.State(D, vocab=num_vocab, feedback=1)
+    model.res_mem = spa.State(D, vocab=num_vocab, feedback=1)
 
-    model.tot_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
+    model.tot_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                               input_keys=input_keys, output_keys=output_keys,
                                               wta_output=True)
-    model.count_tot = spa.State(D, feedback=1)
-    model.tot_mem = spa.State(D, feedback=1)
+    model.count_tot = spa.State(D, vocab=num_vocab, feedback=1)
+    model.tot_mem = spa.State(D, vocab=num_vocab, feedback=1)
 
-    model.count_fin = spa.State(D, feedback=1)
+    model.count_fin = spa.State(D, vocab=num_vocab, feedback=1)
 
     # Can I do this without using a vocab?
     # Can a production system output a scalar value?
-    model.inc_rmp = RampNet(less_D, ramp_vocab)
-    model.mem_rmp = RampNet(less_D, ramp_vocab)
+    model.inc_rmp = RampNet(less_D, ramp_vocab, label="inc", seed=0)
+    model.mem_rmp = RampNet(less_D, ramp_vocab, label="mem", seed=0)
 
 
 
@@ -106,30 +106,32 @@ with model:
     """
 
 
-    # Even with preset states this routing is fucked
+    # WOOHOO THE INITIAL WRITE IS WORKING
+    # BUT MAYBE WE AREN'T RESETTING THINGS PROPERLY? LIKE START IS NEVER UNDONE...
     actions = spa.Actions(
         # If the input isn't blank, read it in
         on_input=
         "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - dot(op_state, CNT1+CNT2+CMP) + dot(op_state, NONE))/1.5 "
-        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP, inc_rmp_start = START" % (join_num, join_num,),
+        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP, inc_rmp_start = 2*START" % (join_num, join_num,),
         # If we have finished incrementing, keep incrementing
         # So, two ramps? One for increment_1 and one for increment_2?
         # increment_2 resets increment_1, cmp resets increment_2
         # Delay the incrementing
         increment=
-        "dot(op_state, CNT1) - comp_tot_fin + inc_rmp"
+        "2*dot(op_state, CNT1) - comp_tot_fin - inc_rmp"
         "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = CMP, mem_rmp_start = START, inc_rmp_reset = RESET",
         # 
         to_mem=
-        "dot(op_state, CNT2) - comp_tot_fin + mem_rmp"
-        "--> res_mem = count_res, tot_mem = count_tot, op_state = CMP, mem_rmp_reset = RESET, inc_rmp_start = START ",
+        "2*dot(op_state, CNT2) - comp_tot_fin - mem_rmp"
+        "--> res_mem = count_res, tot_mem = count_tot, op_state = CNT1, mem_rmp_reset = RESET, inc_rmp_start = START ",
         # If not done, keep incrementing
+        # Way too fast
         cmp_fail=
-        "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin - inc_rmp"
-        "--> op_state = CNT2, inc_rmp_start = RESET, mem_rmp_start = START",
+        "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin + 2.5*inc_rmp"
+        "--> op_state = CNT2, inc_rmp_reset = RESET, mem_rmp_start = START",
         # If we're done incrementing write it to the answer
         cmp_good=
-        "dot(op_state, CMP) + comp_tot_fin - inc_rmp"
+        "dot(op_state, CMP) + comp_tot_fin + inc_rmp"
         "--> answer = count_res, op_state = NONE, inc_rmp_reset = RESET"
     )
 

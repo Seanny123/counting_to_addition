@@ -12,12 +12,12 @@ class RampNet(Module):
         super(RampNet, self).__init__(label, seed, add_to_container)
 
         with self:
-            self.ramp_integrator = nengo.Ensemble(cfg.n_neurons_cconv, 1, radius=1.1)
+            self.ramp_integrator = nengo.Ensemble(cfg.n_neurons_cconv, 1, radius=1.1, label=label)
             self.start = nengo.Node(size_in=d)
             self.reset = nengo.Node(size_in=d)
 
             nengo.Connection(self.start, self.ramp_integrator,
-                             transform=np.array([ramp_vocab.parse("START").v * cfg.mtr_ramp_synapse * cfg.mtr_ramp_scale * 4]),
+                             transform=np.array([ramp_vocab.parse("START").v * cfg.mtr_ramp_synapse * cfg.mtr_ramp_scale * 3]),
                              synapse=cfg.mtr_ramp_synapse)
             nengo.Connection(self.ramp_integrator, self.ramp_integrator,
                              synapse=cfg.mtr_ramp_synapse)
