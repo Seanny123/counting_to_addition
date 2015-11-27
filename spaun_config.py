@@ -12,9 +12,6 @@ from nengo.dists import Exponential as ClippedExpDist
 
 class SpaunConfig(object):
     def __init__(self):
-        self.seed = int(time.time())
-        self.set_seed(self.seed)
-
         self.raw_seq_str = ''
         self.raw_seq = None
         self.stim_seq = None
@@ -49,7 +46,7 @@ class SpaunConfig(object):
         self.trans_cconv_radius = 2
         self.trans_ave_scale = 0.3
 
-        self.mtr_ramp_synapse = 0.05
+        self.mtr_ramp_synapse = 0.1
         self.mtr_ramp_reset_hold_transform = 0.945
         self.mtr_ramp_scale = 2
         self.mtr_est_digit_response_time = 1.5 / self.mtr_ramp_scale
@@ -62,74 +59,13 @@ class SpaunConfig(object):
         self.dec_fr_min_thresh = 0.60  # 0.3
         self.dec_fr_item_in_scale = 0.65
 
-        self._backend = 'ref'
-
         self.data_dir = ''
         self.probe_data_filename = 'probe_data.npz'
-
-    @property
-    def backend(self):
-        return self._backend
-
-    @backend.setter
-    def backend(self, val):
-        val = val.lower()
-        if val in ['ref']:
-            self._backend = 'ref'
-        elif val in ['opencl', 'ocl']:
-            self._backend = 'ocl'
-        elif val in ['mpi', 'bluegene', 'bg']:
-            self._backend = 'mpi'
-        elif val in ['spinn']:
-            self._backend = 'spinn'
-        else:
-            raise RuntimeError('Exception! "%s" backend is not supported!' %
-                               val)
-
-    @property
-    def use_ref(self):
-        return self.backend == 'ref'
-
-    @property
-    def use_opencl(self):
-        return self.backend == 'ocl'
-
-    @property
-    def use_mpi(self):
-        return self.backend == 'mpi'
-
-    @property
-    def use_spinn(self):
-        return self.backend == 'spinn'
-
-    def set_seed(self, seed):
-        if seed > 0:
-            self.seed = seed
-            np.random.seed(self.seed)
-            self.rng = np.random.RandomState(self.seed)
 
     def get_optimal_sp_radius(self, dim=None):
         if dim is None:
             dim = self.sp_dim
         return 3.5 / np.sqrt(dim)
-
-    def get_probe_data_filename(self, label='probe_data', suffix='',
-                                ext='npz'):
-        suffix = str(suffix).replace('?', '@')
-
-        raw_seq = cfg.raw_seq_str.replace('?', '@').replace(':', ';')
-        if self.present_blanks:
-            raw_seq = '-'.join(raw_seq)
-
-        return "+".join([label,
-                         "_".join([str(type(self.neuron_type).__name__),
-                                   str(self.sp_dim)]),
-                         raw_seq,
-                         str(self.seed)]) + \
-               ("" if suffix is '' else '(' + suffix + ')') + "." + ext
-
-    def gen_probe_data_filename(self, label='probe_data', suffix=''):
-        self.probe_data_filename = self.get_probe_data_filename(label, suffix)
 
     def make_assoc_mem(self, input_vectors, output_vectors=None,
                        wta_inhibit_scale=3.5, threshold_output=True,

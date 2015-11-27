@@ -4,6 +4,8 @@ from nengo import spa
 import numpy as np
 from collections import OrderedDict
 
+from ramp_network import RampNet
+
 less_D = 16
 D = 64
 rng = np.random.RandomState(0)
@@ -43,10 +45,7 @@ with model:
     model.op_state = spa.State(D)
 
     # TODO: Make this adaptively large
-    # from patterns
     input_keys = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR']
-
-    # to patterns
     output_keys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']
 
     model.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
@@ -65,8 +64,8 @@ with model:
 
     # Can I do this without using a vocab?
     # Can a production system output a scalar value?
-    model.inc_1 = spa.State(less_D, vocab=ramp_vocab)
-    model.reset_1 = spa.State(less_D, vocab=ramp_vocab)
+    model.inc_rmp = RampNet(less_D, ramp_vocab)
+    model.mem_rmp = RampNet(less_D, ramp_vocab)
 
 
 
@@ -112,26 +111,26 @@ with model:
         # If the input isn't blank, read it in
         on_input=
         "(0.5*dot(q1, %s) + 0.5*dot(q2, %s) - dot(op_state, CNT1+CNT2+CMP) + dot(op_state, NONE))/1.5 "
-        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP" % (join_num, join_num,),
+        "--> count_res = q1, count_tot = ZERO, count_fin = q2, op_state = CMP, inc_rmp_start = START" % (join_num, join_num,),
         # If we have finished incrementing, keep incrementing
         # So, two ramps? One for increment_1 and one for increment_2?
         # increment_2 resets increment_1, cmp resets increment_2
         # Delay the incrementing
-        increment_1=
-        "dot(op_state, CNT1) - comp_tot_fin "
-        "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = CNT2",
+        increment=
+        "dot(op_state, CNT1) - comp_tot_fin + inc_rmp"
+        "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = CMP, mem_rmp_start = START, inc_rmp_reset = RESET",
         # 
-        increment_2=
-        "dot(op_state, CNT2) - comp_tot_fin "
-        "--> res_mem = count_res, tot_mem = count_tot, op_state = CMP ",
+        to_mem=
+        "dot(op_state, CNT2) - comp_tot_fin + mem_rmp"
+        "--> res_mem = count_res, tot_mem = count_tot, op_state = CMP, mem_rmp_reset = RESET, inc_rmp_start = START ",
         # If not done, keep incrementing
         cmp_fail=
-        "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin "
-        "--> op_state = CNT1",
+        "1.5*dot(op_state, CMP) - 0.5*comp_tot_fin - inc_rmp"
+        "--> op_state = CNT2, inc_rmp_start = RESET, mem_rmp_start = START",
         # If we're done incrementing write it to the answer
         cmp_good=
-        "dot(op_state, CMP) + comp_tot_fin"
-        "--> answer = count_res, op_state = NONE"
+        "dot(op_state, CMP) + comp_tot_fin - inc_rmp"
+        "--> answer = count_res, op_state = NONE, inc_rmp_reset = RESET"
     )
 
     model.bg = spa.BasalGanglia(actions)
