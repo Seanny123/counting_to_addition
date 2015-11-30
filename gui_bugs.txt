@@ -3,4 +3,3 @@ Setting label of sub-network didn't cause update
 Sub-vocabs not appearing to be applied on certain spa.State
 Basal ganglia labels not updating on reload
 SPA module outputting scalar balue not recognized as such
-Dimensionality of state mismatch still says buffer and is missing a space
