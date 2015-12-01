@@ -62,17 +62,14 @@ with model:
     adder = nengo.Ensemble(n_neurons, D*2, intercepts=[intercept]*n_neurons)
     recall = nengo.Node(size_in=D)
     learning = nengo.Node([0])
-    comb_node = nengo.Node(size_in=2*D)
 
-    conn_in = nengo.Connection(comb_node, adder, synapse=None,
-                           learning_rule_type=voja)
-    nengo.Connection(learning, conn_in.learning_rule, synapse=None)
+    conn_in1 = nengo.Connection(model.in_1.output, adder[D:], learning_rule_type=voja)
+    conn_in2 = nengo.Connection(model.in_2.output, adder[:D], learning_rule_type=voja)
+    nengo.Connection(learning, conn_in1.learning_rule, synapse=None)
+    nengo.Connection(learning, conn_in2.learning_rule, synapse=None)
 
     conn_out = nengo.Connection(adder, recall, learning_rule_type=nengo.PES(1e-3),
                                 function=lambda x: np.zeros(D))
-
-    nengo.Connection(model.in_1.output, comb_node[D:])
-    nengo.Connection(model.in_2.output, comb_node[:D])
 
     nengo.Connection(recall, model.out.input)
 
@@ -88,7 +85,3 @@ with model:
 
     err_node = nengo.Node(lambda t, x: np.linalg.norm(x), size_in=D)
     nengo.Connection(error, err_node)
-
-    # OH SHIT IT'S THE INTERCEPTS
-    dummy = nengo.Ensemble(n_neurons, D*2, intercepts=[intercept]*n_neurons)
-    nengo.Connection(comb_node, dummy, synapse=None)
