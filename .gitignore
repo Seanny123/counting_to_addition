@@ -10,6 +10,7 @@ dist
 nengo.simulator.logs/
 nengo.simulator.analytics/
 nengo.simulator.plots/
+data/
 log.txt
 .ipynb_checkpoints/
 .cache

@@ -61,13 +61,13 @@ with model:
 
     def q1_func(t):
         if(t < 0.05):
-            return "TWO"
+            return "ONE"
         else:
             return "0"
 
     def q2_func(t):
         if(t < 0.05):
-            return "TWO"
+            return "THREE"
         else:
             return "0"
 
@@ -103,10 +103,10 @@ with model:
         # If we have finished incrementing, keep incrementing
         increment=
         "1.25*dot(op_state, INC) - comp_tot_fin - dot(op_state, LOAD)"
-        "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = 0.3*CMP - 0.2*LOAD",
+        "--> res_assoc = res_mem, tot_assoc = tot_mem, op_state = 0.75*CMP - 0.5*LOAD",
         load_mem=
         "1.25*dot(op_state, LOAD) - comp_tot_fin - dot(op_state, CMP)"
-        "--> res_mem = count_res, tot_mem = count_tot, op_state = 0.3*INC - 0.2*CMP",
+        "--> res_mem = count_res, tot_mem = count_tot, op_state = 0.75*INC - 0.5*CMP",
         # If not done, keep incrementing
         cmp_fail=
         "0.75*dot(op_state, CMP) - 0.5*comp_tot_fin "
