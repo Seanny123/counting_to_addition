@@ -15,9 +15,11 @@ number_dict = {"ZERO":0, "ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
 number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 
 number_range = 4
+vocab.parse("ZERO")
 number_list = number_ordered.keys()
-for i in range(0, number_range):
-    vocab.parse(number_list[i])
+for i in range(1, number_range):
+    print(number_list[i+1])
+    vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
 
 model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 n_neurons = 800
@@ -46,7 +48,7 @@ shuffle(shuffled)
 print(shuffled)
 
 def shuffle_func(t):
-    if(round(t % period *1000) == 0):
+    if(round((t % period * num_items) * 1000) == 0):
         shuffle(shuffled)
     return shuffled
 
@@ -93,11 +95,11 @@ with model:
 
 sim = nengo.Simulator(model, dt=dt)
 sim.run(T)
+"""
 t = sim.trange()
 
 import matplotlib.pyplot as plt
 
-"""
 plt.figure()
 plt.title("Error")
 plt.plot(t, np.linalg.norm(sim.data[p_error], axis=1))
@@ -111,7 +113,6 @@ plt.figure()
 plt.title("Keys_2")
 plt.plot(t, spa.similarity(sim.data[p_keys][:, D:], vocab))
 plt.legend(vocab.keys, loc='best')
-"""
 
 plt.figure()
 plt.title("Result")
@@ -126,5 +127,5 @@ plt.legend(vocab.keys, loc='best')
 plt.ylim(-1.5, 1.5)
 
 plt.show()
-
+"""
 ipdb.set_trace()
