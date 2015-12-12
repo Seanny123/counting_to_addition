@@ -85,7 +85,7 @@ with model:
     nengo.Connection(env_values, error, transform=-1, synapse=None)
     nengo.Connection(recall, error, synapse=None)
     nengo.Connection(error, conn_out.learning_rule)
-
+"""
     # Setup probes
     p_keys = nengo.Probe(env_keys, synapse=None)
     p_values = nengo.Probe(env_values, synapse=None)
@@ -95,7 +95,7 @@ with model:
 
 sim = nengo.Simulator(model, dt=dt)
 sim.run(T)
-"""
+
 t = sim.trange()
 
 import matplotlib.pyplot as plt
@@ -127,5 +127,6 @@ plt.legend(vocab.keys, loc='best')
 plt.ylim(-1.5, 1.5)
 
 plt.show()
-"""
+
 ipdb.set_trace()
+"""

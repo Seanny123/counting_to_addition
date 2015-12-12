@@ -29,9 +29,7 @@ state_vocab.parse("RUN+NONE")
 
 num_vocab = vocab.create_subset(num_ord_filt.keys())
 
-model = spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0)
-
-with model:
+with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as model:
     model.q1 = spa.State(D, vocab=num_vocab)
     model.q2 = spa.State(D, vocab=num_vocab)
     model.answer = spa.State(D, vocab=num_vocab)
@@ -96,8 +94,6 @@ with model:
         else:
             return "0"
 
-    # there should be an op
-
     model.input = spa.Input(q1=q1_func, q2=q2_func, op_state=op_state_func)
 
     # TODO: add the max count
@@ -114,9 +110,7 @@ with model:
     bigger_finder = nengo.Ensemble(400, D, function=bigger_func)
     """
 
-
-    # We may not actually ever need to use the gate...
-    actions = spa.Actions(
+    main_actions = spa.Actions(
         ## If the input isn't blank, read it in
         on_input=
         "(dot(q1, %s) + dot(q2, %s))/2 "
@@ -140,8 +134,8 @@ with model:
         "comp_inc_res_A = comp_assoc, comp_assoc = res_mem*ONE, comp_inc_res_B = count_res",
     )
 
-    model.bg = spa.BasalGanglia(actions)
-    model.thal = spa.Thalamus(model.bg)
+    model.bg_main = spa.BasalGanglia(main_actions)
+    model.thal_main = spa.Thalamus(model.bg_main)
 
     # had to put the assoc connections here because bugs
     # ideally they should be routable
@@ -154,3 +148,12 @@ with model:
     )
 
     model.cortical = spa.Cortical(cortical_actions)
+
+    model.speech = spa.State(D)
+    model.fast_ans = spa.State(D)
+
+    feedback_actions = spa.Actions(
+        fast="speech = fast_ans",
+        slow="speech = answer"
+    )
+    model.feedback_bg = spa.BasalGanglia(feedback_actions)

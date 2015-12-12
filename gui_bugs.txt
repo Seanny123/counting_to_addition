@@ -3,3 +3,4 @@ Setting label of sub-network didn't cause update
 Sub-vocabs not appearing to be applied on certain spa.State
 Basal ganglia labels not updating on reload
 SPA module outputting scalar balue not recognized as such
+Deleting a node that was initially typoed caused an error?
