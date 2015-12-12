@@ -8,6 +8,87 @@ from random import shuffle
 import ipdb
 
 D = 32
+
+def create_adder_env(q_list, ans_list):
+    with nengo.Network(label="env") as env:
+        env.env_cls = AdderEnv(q_list, ans_list)
+        env.timery = nengo.Node(env.env_cls.timey_things)
+
+        env.env_values = nengo.Node(env.env_cls.fake_answer)
+        env.env_keys = nengo.Node(env.env_cls.input_func)
+        env.learning = nengo.Node(env.env_cls.learning_func)
+    return env
+
+
+class AdderEnv():
+
+
+    def __init__(self, q_list, ans_list):
+        ## Bunch of time constants
+        self.rest = 0.05
+        self.ans_delay = 0.35
+        self.period = 0.65
+        # each item gets run 4 times
+        self.swap_time = self.period * 4
+
+        self.list_index = 0
+        self.q_list = q_list
+        self.ans_list = ans_list
+        self.num_items = len(q_list)
+
+        # for confidence test only
+        self.current_qs = self.q_list[0:2]
+        self.current_ans = self.ans_list[0:2]
+        self.swapped = False
+
+    def input_func(self, t):
+        if t % self.period > self.rest:
+            return self.current_qs[self.list_index]
+        else:
+            return np.zeros(2*D)
+
+    def fake_answer(self, t):
+        # this feedback should be triggered on an answer
+        if t % self.period > self.ans_delay:
+            return self.current_ans[self.list_index]
+        else:
+            return np.zeros(D)
+
+    def timey_things(self, t):
+        "so I don't need to make multiple nodes"
+        self.swap(t)
+        self.increment_index(t)
+
+    def swap(self, t):
+        "for confidence test only"
+        if(round((t % self.swap_time) * 1000) == 0):
+            if self.swapped:
+                self.current_qs = self.q_list[0:2]
+                self.current_ans = self.ans_list[0:2]
+                self.swapped = False
+            else:
+                self.current_qs = self.q_list[2:4]
+                self.current_ans = self.ans_list[2:4]
+                self.swapped = True
+
+    def increment_index(self, t):
+        "instead of caluclating it in every function"
+        if(round((t % self.period) * 1000) == 0):
+            # This didn't work
+            self.list_index = (self.list_index + 1) % len(self.current_qs)
+
+    def learning_func(self, t):
+        # this should be triggered on an answer
+        # and then turned off after a certain point
+        if t % self.period > self.ans_delay:
+            return -int(t >= self.swap_time)
+        else:
+            return 0
+
+    def answer_checker(self, t, x):
+        "check to see if the circuit has malfunctioned"
+        return True
+
 rng = np.random.RandomState(0)
 vocab = spa.Vocabulary(D, unitary=["ONE"], rng=rng)
 number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
@@ -20,7 +101,6 @@ for i in range(number_range):
     print(number_list[i])
     vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
 
-model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 n_neurons = 100
 
 q_list = []
@@ -38,75 +118,75 @@ for val in itertools.product(number_list, number_list):
         )
         print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
-num_items = len(q_list)
-reps = 250
-dt = 0.001
-period = 0.4
-T = period*num_items*reps
-shuffled = range(0,len(q_list))
+with spa.SPA(vocabs=[vocab], label="Count Net", seed=0) as model:
+    model.env = create_adder_env(q_list, ans_list)
 
-def shuffle_func(t):
-    if(round((t % period * num_items) * 1000) == 0):
-        shuffle(shuffled)
-    return shuffled
+    model.answer = spa.State(D)
+    model.speech = spa.State(D)
+    nengo.Connection(model.env.env_values, model.answer.input, synapse=None)
 
-def cycle_array(x, period, dt=0.001):
-    """Cycles through the elements"""
-    i_every = int(round(period/dt))
-    if i_every != period/dt:
-        raise ValueError("dt (%s) does not divide period (%s)" % (dt, period))
-    def f(t):
-        i = int(round((t - dt)/dt))  # t starts at dt
-        if t % period < 0.3:
-            return x[shuffled[(i/i_every)%len(x)]]
-        else:
-            return np.zeros(x[0].size)
-    return f
-
-def learning_func(t):
-    if t % period < 0.3:
-        return -int(t>=(T-period*num_items))
-    else:
-        return 0
-
-with model:
-    env_keys = nengo.Node(cycle_array(q_list, period, dt))
-    env_values = nengo.Node(cycle_array(ans_list, period, dt))
-    shuffle_node = nengo.Node(shuffle_func)
-
-    # Why is learning with an associative memory going to solve my problem?
     adder = nengo.networks.AssociativeMemory(input_vectors=q_list, n_neurons=n_neurons)
     adder.add_wta_network()
+    
     adder_out = nengo.Ensemble(n_neurons*8, len(ans_list))
-    recall = nengo.Node(size_in=D)
-    learning = nengo.Node(output=learning_func)
-
-    nengo.Connection(env_keys, adder.input)
     nengo.Connection(adder.elem_output, adder_out)
+    adder_in = nengo.Ensemble(n_neurons*8, len(q_list))
+    nengo.Connection(adder.elem_input, adder_in)
 
-    conn_out = nengo.Connection(adder_out, recall, learning_rule_type=nengo.PES(1e-5),
+    model.recall = spa.State(D)
+    model.conf = spa.State(1)
+
+    nengo.Connection(model.env.env_keys, adder.input)
+
+    conn_out = nengo.Connection(adder_out, model.recall.input, learning_rule_type=nengo.PES(1e-5),
                                 function=lambda x: np.zeros(D))
 
-    # Create the error population
+    # Create the error population and node
+    # These will come from the environment
     error = nengo.Ensemble(n_neurons*8, D)
-    nengo.Connection(learning, error.neurons, transform=[[10.0]]*n_neurons*8,
+    nengo.Connection(model.env.learning, error.neurons, transform=[[10.0]]*n_neurons*8,
                      synapse=None)
 
+    def err_func(t, x):
+        mag = np.linalg.norm(x)
+        if mag < 0.1:
+            # TODO: find a better value or learning rate
+            return 1
+        else:
+            return -mag
+
+    err_mag = nengo.Node(err_func, size_in=D)
+    nengo.Connection(error, err_mag)
+
     # Calculate the error and use it to drive the PES rule
-    nengo.Connection(env_values, error, transform=-1, synapse=None)
-    nengo.Connection(recall, error, synapse=None)
+    nengo.Connection(model.env.env_values, error, transform=-1, synapse=None)
+    nengo.Connection(model.recall.output, error, synapse=None)
     nengo.Connection(error, conn_out.learning_rule)
 
+    # Let confidence be inversely proportional to the magnitude of the error?
+    conn_conf = nengo.Connection(adder_in, model.conf.input, learning_rule_type=nengo.PES(1e-5),
+                                 function=lambda x: 0.2)
+    nengo.Connection(err_mag, conn_conf.learning_rule)
+
+
+    feedback_actions = spa.Actions(
+        fast="conf --> speech = recall",
+        slow="1 - conf --> speech = answer"
+    )
+    model.feedback_bg = spa.BasalGanglia(feedback_actions)
+    model.feedback_thal = spa.Thalamus(model.feedback_bg)
+
     # Setup probes
-    p_keys = nengo.Probe(env_keys, synapse=None)
-    p_values = nengo.Probe(env_values, synapse=None)
-    p_learning = nengo.Probe(learning, synapse=None)
+    p_keys = nengo.Probe(model.env.env_keys, synapse=None)
+    p_values = nengo.Probe(model.env.env_values, synapse=None)
+    p_learning = nengo.Probe(model.env.learning, synapse=None)
     p_error = nengo.Probe(error, synapse=0.005)
-    p_recall = nengo.Probe(recall, synapse=None)
+    p_error_mag = nengo.Probe(err_mag)
+    p_recall = nengo.Probe(model.recall.output, synapse=None)
+    p_conf = nengo.Probe(model.conf.output)
 
-
-sim = nengo.Simulator(model, dt=dt)
-sim.run(T)
+sim = nengo.Simulator(model)
+sim.run(model.env.env_cls.swap_time*4)
 
 t = sim.trange()
 
@@ -120,11 +200,13 @@ plt.figure()
 plt.title("Keys_1")
 plt.plot(t, spa.similarity(sim.data[p_keys][:, :D], vocab))
 plt.legend(vocab.keys, loc='best')
+plt.ylim(-1.5, 1.5)
 
 plt.figure()
 plt.title("Keys_2")
 plt.plot(t, spa.similarity(sim.data[p_keys][:, D:], vocab))
 plt.legend(vocab.keys, loc='best')
+plt.ylim(-1.5, 1.5)
 
 plt.figure()
 plt.title("Result")
@@ -168,7 +250,7 @@ plt.plot(t[win:], spa.similarity(sim.data[p_keys][win:, D:], vocab))
 plt.legend(vocab.keys, loc='best')
 plt.ylim(-1.5, 1.5)
 
-plt.plot(t, sim.data[p_dum])
+plt.plot(t, sim.data[p_conf])
 plt.show()
 plt.plot(t, sim.data[p_add])
 plt.show()

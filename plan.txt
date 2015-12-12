@@ -1,0 +1,3 @@
+- Make an environment network
+	Gives error to conf and adder_out on answer
+- Try the other vOja stuff

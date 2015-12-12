@@ -157,3 +157,4 @@ with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as model:
         slow="speech = answer"
     )
     model.feedback_bg = spa.BasalGanglia(feedback_actions)
+    model.feedback_thal = spa.Thalamus(model.feedback_bg)
