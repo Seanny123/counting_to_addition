@@ -9,7 +9,6 @@ import ipdb
 
 D = 32
 dt = 0.001
-run_time = 0.7 * 4 * 4
 
 def create_adder_env(q_list, ans_list):
     with nengo.Network(label="env") as env:
@@ -23,6 +22,7 @@ def create_adder_env(q_list, ans_list):
 
 
 class AdderEnv():
+
 
     def __init__(self, q_list, ans_list):
         ## Bunch of time constants
@@ -40,7 +40,7 @@ class AdderEnv():
         # for confidence test only
         self.current_qs = self.q_list[0:2]
         self.current_ans = self.ans_list[0:2]
-        self.swapped = False
+        self.swapped
 
     def input_func(self, t):
         if t % self.period > self.rest:
@@ -61,11 +61,11 @@ class AdderEnv():
         self.increment_index(t)
 
     def swap(self, t):
-        "for confidence test only, switch to shuffling later"
+        "for confidence test only"
         i = int(round((t - dt)/dt))
         i_every = int(round(self.swap_time/dt))
         self.swapped = i/i_every % 2
-        if self.swapped == 0:
+        if swapped == 0:
             self.current_qs = self.q_list[0:2]
             self.current_ans = self.ans_list[0:2]
         else:
@@ -82,7 +82,7 @@ class AdderEnv():
         # this should be triggered on an answer
         # and then turned off after a certain point
         if t % self.period > self.ans_delay:
-            return int(t <= self.swap_time*48)
+            return -int(t >= self.swap_time*2)
         else:
             return 0
 
@@ -123,73 +123,27 @@ with spa.SPA(vocabs=[vocab], label="Count Net", seed=0) as model:
     model.env = create_adder_env(q_list, ans_list)
 
     model.answer = spa.State(D)
-    model.speech = spa.State(D)
     nengo.Connection(model.env.env_values, model.answer.input, synapse=None)
 
-    adder = nengo.networks.AssociativeMemory(input_vectors=q_list, n_neurons=n_neurons)
-    adder.add_wta_network()
-    
-    adder_out = nengo.Ensemble(n_neurons*8, len(ans_list))
-    nengo.Connection(adder.elem_output, adder_out)
-    conf_in = nengo.Ensemble(n_neurons*8, len(q_list))
-    nengo.Connection(adder.elem_output, conf_in)
+    model.q1 = spa.State(D)
+    model.q2 = spa.State(D)
+    nengo.Connection(model.env.env_keys[D:], model.q1.input)
+    nengo.Connection(model.env.env_keys[:D], model.q2.input)
 
-    model.recall = spa.State(D)
-    model.conf = spa.State(1)
-
-    nengo.Connection(model.env.env_keys, adder.input)
-
-    conn_out = nengo.Connection(adder_out, model.recall.input, learning_rule_type=nengo.PES(1e-5),
-                                function=lambda x: np.zeros(D))
-
-    # Create the error population and node
-    # These will come from the environment
-    error = nengo.Ensemble(n_neurons*8, D)
-    nengo.Connection(model.env.learning, error.neurons, transform=[[10.0]]*n_neurons*8,
-                     synapse=None)
-
-    def err_func(t, x):
-        mag = np.linalg.norm(x[D])
-        if mag < 0.1:
-            return -1*x[-1]
-        else:
-            return 1*x[-1]
-
-    err_mag = nengo.Node(err_func, size_in=D+1)
-    nengo.Connection(error, err_mag[:D], synapse=0.01)
-    nengo.Connection(model.env.learning, err_mag[-1])
-
-    # Calculate the error and use it to drive the PES rule
-    nengo.Connection(model.env.env_values, error, transform=-1, synapse=None)
-    nengo.Connection(model.recall.output, error, synapse=None)
-    nengo.Connection(error, conn_out.learning_rule)
-
-    # Let confidence be inversely proportional to the magnitude of the error
-    conn_conf = nengo.Connection(conf_in, model.conf.input, learning_rule_type=nengo.PES(1e-5),
-                                 function=lambda x: 0.2)
-    nengo.Connection(err_mag, conn_conf.learning_rule)
-
-
-    feedback_actions = spa.Actions(
-        fast="conf --> speech = recall",
-        slow="1 - conf --> speech = answer"
-    )
-    model.feedback_bg = spa.BasalGanglia(feedback_actions)
-    model.feedback_thal = spa.Thalamus(model.feedback_bg)
+    index = nengo.Node(lambda t: model.env.env_cls.list_index)
+    swap = nengo.Node(lambda t: model.env.env_cls.swapped)
 """
     # Setup probes
     p_keys = nengo.Probe(model.env.env_keys, synapse=None)
     p_values = nengo.Probe(model.env.env_values, synapse=None)
     p_learning = nengo.Probe(model.env.learning, synapse=None)
     p_error = nengo.Probe(error, synapse=0.005)
-    p_error_mag = nengo.Probe(err_mag, synapse=0.01)
+    p_error_mag = nengo.Probe(err_mag)
     p_recall = nengo.Probe(model.recall.output, synapse=None)
     p_conf = nengo.Probe(model.conf.output)
-    p_speech = nengo.Probe(model.speech.output)
-    p_bg_out = nengo.Probe(model.feedback_bg.output)
 
-sim = nengo.Simulator(model, dt=dt)
-sim.run(run_time)
+sim = nengo.Simulator(model)
+sim.run(model.env.env_cls.swap_time*4)
 
 t = sim.trange()
 
@@ -253,12 +207,8 @@ plt.plot(t[win:], spa.similarity(sim.data[p_keys][win:, D:], vocab))
 plt.legend(vocab.keys, loc='best')
 plt.ylim(-1.5, 1.5)
 
-f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True, sharey=True)
-ax1.plot(t, sim.data[p_conf])
-ax2.plot(t, sim.data[p_error_mag])
-ax3.plot(t, sim.data[p_bg_out])
+plt.plot(t, sim.data[p_conf])
 plt.show()
-
 plt.plot(t, sim.data[p_add])
 plt.show()
 

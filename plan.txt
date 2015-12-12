@@ -1,3 +1,7 @@
+- Test confidence actually converges to something and doesn't just disrupt constantly...
+- Why the fuck is this thing rising constantly?
+- If it does, see if the input is actually ridiculous or something...
+- Yup... It's being a dick
 - Make an environment network
 	Gives error to conf and adder_out on answer
 - Try the other vOja stuff
