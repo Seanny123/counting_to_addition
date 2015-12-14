@@ -1,3 +1,8 @@
 - Make an environment network
 	Gives error to conf and adder_out on answer
+- Check confidence threshold is realistic
+- Make the plots
+- Update the README
+- Add the report to the repository
+- Upload the collected data to figshare or something?
 - Try the other vOja stuff

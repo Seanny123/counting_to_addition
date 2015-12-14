@@ -18,5 +18,6 @@ log.txt
 .vagrant
 wintest.sh
 Vagrantfile
+env.log
 
 *.class

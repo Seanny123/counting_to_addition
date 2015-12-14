@@ -47,19 +47,19 @@ with model:
 
     model.res_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                             input_keys=input_keys, output_keys=output_keys,
-                                            wta_output=True, input_scale=2.5)
+                                            wta_output=True)
     model.count_res = MemNet(D, num_vocab, label="count_res")
     model.res_mem = MemNet(D, num_vocab, label="res_mem")
     model.rmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
-                                             wta_output=True, input_scale=2.5)
+                                             wta_output=True)
 
     model.tot_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                             input_keys=input_keys, output_keys=output_keys,
-                                            wta_output=True, input_scale=2.5)
+                                            wta_output=True)
     model.count_tot = MemNet(D, num_vocab, label="count_tot")
     model.tot_mem = MemNet(D, num_vocab, label="tot_mem")
     model.tmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
-                                             wta_output=True, input_scale=2.5)
+                                             wta_output=True)
 
     model.count_fin = MemNet(D, num_vocab, label="count_fin")
 
@@ -70,29 +70,29 @@ with model:
     model.comp_load_res = spa.Compare(D)
     model.comp_inc_res = spa.Compare(D)
     model.comp_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
-                                             wta_output=True, input_scale=2.5)
+                                             wta_output=True)
 
     def q1_func(t):
         if(t < 0.07):
             return "ONE"
-        elif(0.2 < t < 0.3):
-            return "TWO"
+        #elif(0.2 < t < 0.3):
+        #    return "TWO"
         else:
             return "0"
 
     def q2_func(t):
         if(t < 0.07):
             return "THREE"
-        elif(0.2 < t < 0.3):
-            return "TWO"
+        #elif(0.2 < t < 0.3):
+        #    return "TWO"
         else:
             return "0"
 
     def op_state_func(t):
         if(t < 0.05):
             return "NONE"
-        elif(0.2 < t < 0.25):
-            return "NONE - RUN"
+        #elif(0.2 < t < 0.25):
+        #   return "NONE - RUN"
         else:
             return "0"
 
@@ -120,13 +120,13 @@ with model:
         ## If the input isn't blank, read it in
         on_input=
         "(dot(q1, %s) + dot(q2, %s))/2 "
-        "--> count_res = q1*ONE, count_tot = ONE, fin_assoc = q2, op_state = RUN" % (join_num, join_num,),
+        "--> count_res = q1*ONE, count_tot = ONE, fin_assoc = 2.5*q2, op_state = RUN" % (join_num, join_num,),
         ## If not done, prepare next increment
         cmp_fail=
         "1.25*dot(op_state, RUN) - 0.5*comp_tot_fin + comp_inc_res - comp_load_res"
-        "--> op_state = 0.5*RUN - NONE, rmem_assoc = count_res, tmem_assoc = count_tot, "
+        "--> op_state = 0.5*RUN - NONE, rmem_assoc = 2.5*count_res, tmem_assoc = 2.5*count_tot, "
         "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
-        "comp_load_res_A = res_mem, comp_load_res_B = comp_assoc, comp_assoc = count_res",
+        "comp_load_res_A = res_mem, comp_load_res_B = comp_assoc, comp_assoc = 2.5*count_res",
         ## If we're done incrementing write it to the answer
         cmp_good=
         "0.5*dot(op_state, RUN) + 0.5*comp_tot_fin"
@@ -134,10 +134,10 @@ with model:
         ## Increment memory transfer
         increment=
         "0.3*dot(op_state, RUN) + 1.2*comp_load_res - comp_inc_res"
-        "--> res_assoc = res_mem, tot_assoc = tot_mem, "
+        "--> res_assoc = 2.5*res_mem, tot_assoc = 2.5*tot_mem, "
         "res_mem_gate = CLOSE, tot_mem_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
         "comp_load_res_A = 0.75*ONE, comp_load_res_B = 0.75*ONE, "
-        "comp_inc_res_A = comp_assoc, comp_assoc = res_mem*ONE, comp_inc_res_B = count_res",
+        "comp_inc_res_A = comp_assoc, comp_assoc = 2.5*res_mem*ONE, comp_inc_res_B = count_res",
     )
 
     model.bg = spa.BasalGanglia(actions)

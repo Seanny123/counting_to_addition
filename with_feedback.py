@@ -1,42 +1,55 @@
 import nengo
 from nengo import spa
 from mem_net import MemNet
+from adder_env import create_adder_env
 
 import numpy as np
 from collections import OrderedDict
 
+## Constants
 D = 64
-less_D = 32
+less_D = 16
+n_neurons = 100
+number_range = 4
+
+## Generate the vocab awkwardly
 rng = np.random.RandomState(0)
 vocab = spa.Vocabulary(D, unitary=["ONE"], rng=rng)
-number_dict = {"ZERO":0, "ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
+number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
                "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
 number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 
-number_range = 5
-vocab.parse("ZERO")
 number_list = number_ordered.keys()
-for i in range(1, number_range):
+for i in range(number_range):
+    print(number_list[i])
     vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
 
-join_num = "+".join(number_list[0:number_range])
-num_ord_filt = OrderedDict(number_ordered.items()[:number_range])
+q_list = []
+ans_list = []
+for val in itertools.product(number_list, number_list):
+    ans_val = number_dict[val[0]] + number_dict[val[1]]
+    if ans_val <= number_range:
+        q_list.append(
+            np.concatenate(
+                (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
+            )
+        )
+        ans_list.append(
+            vocab.parse(number_list[ans_val-1]).v
+        )
+        print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
-print(join_num)
-
+## Generate specialised vocabs
 state_vocab = spa.Vocabulary(less_D)
 state_vocab.parse("RUN+NONE")
 
 num_vocab = vocab.create_subset(num_ord_filt.keys())
 
-with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as model:
+with model as spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0):
     model.q1 = spa.State(D, vocab=num_vocab)
     model.q2 = spa.State(D, vocab=num_vocab)
     model.answer = spa.State(D, vocab=num_vocab)
-    # TODO: add connection from question to answer, maybe intermediate pop?
-    # Also going to need a bit of a gate...
 
-    # maybe this should be a mem block?
     model.op_state = MemNet(less_D, state_vocab, label="op_state")
 
     # TODO: Make this adaptively large
@@ -69,32 +82,6 @@ with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as model:
     model.comp_inc_res = spa.Compare(D)
     model.comp_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
                                              wta_output=True, input_scale=2.5)
-
-    def q1_func(t):
-        if(t < 0.07):
-            return "ONE"
-        elif(0.2 < t < 0.3):
-            return "TWO"
-        else:
-            return "0"
-
-    def q2_func(t):
-        if(t < 0.07):
-            return "THREE"
-        elif(0.2 < t < 0.3):
-            return "TWO"
-        else:
-            return "0"
-
-    def op_state_func(t):
-        if(t < 0.05):
-            return "NONE"
-        elif(0.2 < t < 0.25):
-            return "NONE - RUN"
-        else:
-            return "0"
-
-    model.input = spa.Input(q1=q1_func, q2=q2_func, op_state=op_state_func)
 
     # TODO: add the max count
     """
@@ -153,8 +140,8 @@ with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as model:
     model.fast_ans = spa.State(D)
 
     feedback_actions = spa.Actions(
-        fast="speech = fast_ans",
-        slow="speech = answer"
+        fast="conf --> speech = recall",
+        slow="1 - conf --> speech = answer"
     )
     model.feedback_bg = spa.BasalGanglia(feedback_actions)
     model.feedback_thal = spa.Thalamus(model.feedback_bg)
