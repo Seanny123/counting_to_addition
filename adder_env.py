@@ -10,9 +10,10 @@ import logging
 
 logging.basicConfig(filename='env.log',level=logging.DEBUG)
 
-def create_adder_env(q_list, ans_list, op_val):
+
+def create_adder_env(q_list, ans_list, op_val, num_vocab):
     with nengo.Network(label="env") as env:
-        env.env_cls = AdderEnv(q_list, ans_list, op_val)
+        env.env_cls = AdderEnv(q_list, ans_list, op_val, num_vocab)
 
         env.get_ans = nengo.Node(env.env_cls.get_answer)
         env.set_ans = nengo.Node(env.env_cls.set_answer, size_in=D)
@@ -27,7 +28,7 @@ def create_adder_env(q_list, ans_list, op_val):
 
 class AdderEnv():
 
-    def __init__(self, q_list, ans_list, op_val):
+    def __init__(self, q_list, ans_list, op_val, num_vocab):
         ## Bunch of time constants
         self.rest = 0.05
         self.ans_duration = 0.3
@@ -42,12 +43,16 @@ class AdderEnv():
         self.num_items = len(q_list)
         self.indices = range(self.num_items)
         self.gate = 0
+        self.num_vocab = num_vocab
 
         ## Timing variables
         self.learning = False
         self.ans_arrive = 0.0
         self.time = 0.0
         self.chill = False
+
+    def get_sp_text(self, x):
+        return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]
 
     def input_func(self, t):
         if self.time > self.rest:
@@ -90,25 +95,27 @@ class AdderEnv():
 
             if self.ans_arrive == 0.0:
                 print("ANS %s" %t)
-                # TODO: is this gate right?
                 self.gate = 1
                 self.ans_arrive = t
                 self.learning = True
-                # TODO: Make this check suck less
-                if self.ans_list[self.indices[self.list_index]] != tuple(x):
-                    logging.debug("%s != %s" %(self.ans_list[self.indices[self.list_index]], x))
+
+                correct_text = self.get_text(self.ans_list[self.indices[self.list_index]])
+                ans_text = self.get_text(x)
+                if correct_text != ans_texts:
+                    logging.debug("%s != %s" %(correct_text, ans_text))
+
             elif t > (self.ans_arrive + self.ans_duration):
                 print("chill: %s" %t)
                 self.ans_arrive = 0.0
                 self.gate = 0
                 self.chill = True
+                self.learning = False
 
         elif mag < 0.3 and self.chill:
             print("stop chilling: %s" %t)
             
             if self.list_index < self.num_items - 1:
-                #self.list_index += 1
-                self.list_index = 0
+                self.list_index += 1
                 print("after increment: %s \n" %self.list_index)
             else:
                 shuffle(self.indices)
@@ -117,4 +124,3 @@ class AdderEnv():
 
             self.chill = False
             self.time = 0.0
-            self.learning = False

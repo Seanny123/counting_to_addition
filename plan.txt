@@ -1,6 +1,4 @@
-- Make an environment network
-	Gives error to conf and adder_out on answer
-- Check confidence threshold is realistic
+- RUN THE BIG NETWORK
 - Make the plots
 - Update the README
 - Add the report to the repository

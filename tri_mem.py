@@ -115,7 +115,6 @@ with model:
     """
 
 
-    # We may not actually ever need to use the gate...
     actions = spa.Actions(
         ## If the input isn't blank, read it in
         on_input=

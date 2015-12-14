@@ -69,7 +69,7 @@ with nengo.Network(label="test") as model:
 
     p_q = nengo.Probe(env.q_in, synapse=None)
     p_op = nengo.Probe(env.op_in, synapse=None)
-    p_in = nengo.Probe(env.env_keys, synapse=None)
+    p_keys = nengo.Probe(env.env_keys, synapse=None)
     p_ans = nengo.Probe(env.get_ans, synapse=None)
     p_learn = nengo.Probe(env.learning, synapse=None)
     p_gate = nengo.Probe(env.gate, synapse=None)
