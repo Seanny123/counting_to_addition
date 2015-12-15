@@ -61,6 +61,9 @@ with model:
     model.tmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
                                              wta_output=True)
 
+    model.tmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
+                                             wta_output=True)
+
     model.count_fin = MemNet(D, num_vocab, label="count_fin")
 
     model.comp_tot_fin = spa.Compare(D)
@@ -73,7 +76,7 @@ with model:
                                              wta_output=True)
 
     def q1_func(t):
-        if(t < 0.07):
+        if(t < 0.08):
             return "ONE"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
@@ -81,8 +84,8 @@ with model:
             return "0"
 
     def q2_func(t):
-        if(t < 0.07):
-            return "THREE"
+        if(t < 0.08):
+            return "TWO"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -129,7 +132,7 @@ with model:
         ## If we're done incrementing write it to the answer
         cmp_good=
         "0.5*dot(op_state, RUN) + 0.5*comp_tot_fin"
-        "--> answer = count_res, op_state=NONE",
+        "--> answer = 2.5*count_res, op_state=NONE",
         ## Increment memory transfer
         increment=
         "0.3*dot(op_state, RUN) + 1.2*comp_load_res - comp_inc_res"

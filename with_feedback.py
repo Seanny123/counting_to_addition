@@ -38,12 +38,16 @@ for val in itertools.product(number_list, number_list):
         )
         print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
+# TESTING
+q_list[0] = q_list[3]
+ans_list[0] = ans_list[0]
+
 ## Generate specialised vocabs
 state_vocab = spa.Vocabulary(less_D)
 state_vocab.parse("RUN+NONE")
 
 with nengo.Network(label="Root Net", seed=0) as model:
-    env = create_adder_env(q_list, ans_list, state_vocab.parse("NONE"), vocab)
+    env = create_adder_env(q_list, ans_list, state_vocab.parse("NONE").v, vocab)
 
     with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as slow_net:
         slow_net.q1 = spa.State(D, vocab=vocab)
@@ -54,8 +58,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.op_state = MemNet(less_D, state_vocab, label="op_state")
 
         # TODO: Make this adaptively large
-        input_keys = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR']
-        output_keys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']
+        input_keys = ['ONE', 'TWO', 'THREE', 'FOUR']
+        output_keys = ['TWO', 'THREE', 'FOUR', 'FIVE']
 
         slow_net.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
                                                 input_keys=input_keys, output_keys=output_keys,
@@ -63,7 +67,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.count_res = MemNet(D, vocab, label="count_res")
         slow_net.res_mem = MemNet(D, vocab, label="res_mem")
         slow_net.rmem_assoc = spa.AssociativeMemory(input_vocab=vocab,
-                                                 wta_output=True)
+                                                    wta_output=True)
 
         slow_net.tot_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
                                                 input_keys=input_keys, output_keys=output_keys,
@@ -71,18 +75,21 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.count_tot = MemNet(D, vocab, label="count_tot")
         slow_net.tot_mem = MemNet(D, vocab, label="tot_mem")
         slow_net.tmem_assoc = spa.AssociativeMemory(input_vocab=vocab,
+                                                    wta_output=True)
+
+        slow_net.ans_assoc = spa.AssociativeMemory(input_vocab=vocab,
                                                  wta_output=True)
 
         slow_net.count_fin = MemNet(D, vocab, label="count_fin")
 
         slow_net.comp_tot_fin = spa.Compare(D)
         slow_net.fin_assoc = spa.AssociativeMemory(input_vocab=vocab,
-                                                 wta_output=True)
+                                                   wta_output=True)
 
         slow_net.comp_load_res = spa.Compare(D)
         slow_net.comp_inc_res = spa.Compare(D)
         slow_net.comp_assoc = spa.AssociativeMemory(input_vocab=vocab,
-                                                 wta_output=True)
+                                                    wta_output=True)
 
         main_actions = spa.Actions(
             ## If the input isn't blank, read it in
@@ -98,7 +105,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
             ## If we're done incrementing write it to the answer
             cmp_good=
             "0.5*dot(op_state, RUN) + 0.5*comp_tot_fin"
-            "--> answer = count_res, op_state=NONE",
+            "--> ans_assoc = 8*count_res, op_state=NONE",
             ## Increment memory transfer
             increment=
             "0.3*dot(op_state, RUN) + 1.2*comp_load_res - comp_inc_res"
@@ -114,6 +121,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         # had to put the assoc connections here because bugs
         # ideally they should be routable
         cortical_actions = spa.Actions(
+            "answer = ans_assoc",
             "res_mem = rmem_assoc, tot_mem = tmem_assoc",
             "count_res = res_assoc, count_tot = tot_assoc",
             "count_fin = fin_assoc",
@@ -128,7 +136,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.op_in, slow_net.op_state.mem.input)
 
     with spa.SPA(vocabs=[vocab], label="Mem Net", seed=0) as fast_net:
-        fast_net.answer = spa.State(D)
+        fast_net.final_answer = spa.State(D)
 
         adder = nengo.networks.AssociativeMemory(input_vectors=q_list, n_neurons=n_neurons)
         adder.add_wta_network()
@@ -178,14 +186,17 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
         feedback_actions = spa.Actions(
             fast="conf --> speech = recall",
-            slow="1 - conf --> speech = answer"
+            slow="1 - conf --> speech = 2.5*final_answer"
         )
         fast_net.feedback_bg = spa.BasalGanglia(feedback_actions)
         fast_net.feedback_thal = spa.Thalamus(fast_net.feedback_bg)
 
-    nengo.Connection(slow_net.answer.output, fast_net.answer.input)
+    nengo.Connection(slow_net.answer.output, fast_net.final_answer.input)
     nengo.Connection(fast_net.speech.mem.output, env.set_ans)
     # I don't know if sustaining this is absolutely necessary...
     # The actual answer is comming out of the env anyways
-    nengo.Connection(env.gate, fast_net.speech.mem.gate)
+    nengo.Connection(env.reset, fast_net.speech.mem.reset, synapse=None)
+    nengo.Connection(env.gate, fast_net.speech.mem.gate, synapse=None)
 
+#sim = nengo.Simulator(model, dt=dt)
+#sim.run(3.0)

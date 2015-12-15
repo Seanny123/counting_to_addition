@@ -3,13 +3,14 @@ from constants import *
 import nengo
 from nengo import spa
 import numpy as np
-import sys
+import ipdb
 
 from random import shuffle
 import logging
 
 logging.basicConfig(filename='env.log',level=logging.DEBUG)
 
+# I'm pretty sure the gate is fucking up
 
 def create_adder_env(q_list, ans_list, op_val, num_vocab):
     with nengo.Network(label="env") as env:
@@ -23,6 +24,8 @@ def create_adder_env(q_list, ans_list, op_val, num_vocab):
         env.q_in = nengo.Node(env.env_cls.q_inputs)
         env.learning = nengo.Node(lambda t: env.env_cls.learning)
         env.gate = nengo.Node(lambda t: env.env_cls.gate)
+        env.reset = nengo.Node(lambda t: env.env_cls.chill)
+
     return env
 
 
@@ -32,7 +35,7 @@ class AdderEnv():
         ## Bunch of time constants
         self.rest = 0.05
         self.ans_duration = 0.3
-        self.q_duration = 0.07
+        self.q_duration = 0.08
         self.op_duration = 0.05
 
         ## Value variables
@@ -51,7 +54,7 @@ class AdderEnv():
         self.time = 0.0
         self.chill = False
 
-    def get_sp_text(self, x):
+    def sp_text(self, x):
         return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]
 
     def input_func(self, t):
@@ -70,7 +73,7 @@ class AdderEnv():
         if self.time > self.rest and self.time < (self.op_duration + self.rest):
             return self.op_val
         else:
-            return np.zeros(len(self.op_val))
+            return np.zeros(less_D)
 
     def get_answer(self, t):
         if t < (self.ans_arrive + self.ans_duration) and self.ans_arrive != 0.0:
@@ -88,21 +91,24 @@ class AdderEnv():
         """
         self.time += dt
 
-        mag = np.linalg.norm(x)
+        max_sim = np.max(self.num_vocab.dot(x))
 
         # while getting answer
-        if mag > 0.3 and not self.chill:
+        if max_sim > 0.3 and not self.chill:
 
             if self.ans_arrive == 0.0:
                 print("ANS %s" %t)
+                print("SIM %s" %max_sim)
                 self.gate = 1
                 self.ans_arrive = t
                 self.learning = True
 
-                correct_text = self.get_text(self.ans_list[self.indices[self.list_index]])
-                ans_text = self.get_text(x)
-                if correct_text != ans_texts:
+                correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
+                ans_text = self.sp_text(x)
+                if correct_text != ans_text:
                     logging.debug("%s != %s" %(correct_text, ans_text))
+                    print("%s != %s" %(correct_text, ans_text))
+                    ipdb.set_trace()
 
             elif t > (self.ans_arrive + self.ans_duration):
                 print("chill: %s" %t)
@@ -111,12 +117,11 @@ class AdderEnv():
                 self.chill = True
                 self.learning = False
 
-        elif mag < 0.3 and self.chill:
+        elif max_sim < 0.3 and self.chill:
             print("stop chilling: %s" %t)
             
             if self.list_index < self.num_items - 1:
                 self.list_index += 1
-                print("after increment: %s \n" %self.list_index)
             else:
                 shuffle(self.indices)
                 self.list_index = 0
