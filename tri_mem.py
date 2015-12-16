@@ -46,8 +46,8 @@ with model:
     model.op_state = MemNet(less_D, state_vocab, label="op_state")
 
     # TODO: Make this adaptively large
-    input_keys = ['ONE', 'TWO', 'THREE', 'FOUR']
-    output_keys = ['TWO', 'THREE', 'FOUR', 'FIVE']
+    input_keys = number_list[:-1]
+    output_keys = number_list[1:]
 
     model.res_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                             input_keys=input_keys, output_keys=output_keys,
@@ -92,7 +92,7 @@ with model:
 
     def q2_func(t):
         if(t < 0.08):
-            return "THREE"
+            return "TWO"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -154,7 +154,7 @@ with model:
     model.thal = spa.Thalamus(model.bg)
 
     # Make a tresholding population and shove comp_tot_fin through it
-    thr = 0.3
+    thr = 0.25
     thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]), intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
         eval_points=Uniform(thr, 1.1), n_eval_points=5000)
     nengo.Connection(model.comp_tot_fin.output, thresh_ens)

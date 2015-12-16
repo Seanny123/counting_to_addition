@@ -8,6 +8,7 @@ from constants import *
 import numpy as np
 from collections import OrderedDict
 import itertools
+import ipdb
 
 ## Generate the vocab awkwardly
 rng = np.random.RandomState(0)
@@ -27,17 +28,18 @@ join_num = "+".join(number_list[0:number_range])
 q_list = []
 ans_list = []
 for val in itertools.product(number_list, number_list):
-    ans_val = number_dict[val[0]] + number_dict[val[1]]
-    if ans_val <= number_range:
-        q_list.append(
-            np.concatenate(
-                (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
+    if val[0] >= val[1]:
+        ans_val = number_dict[val[0]] + number_dict[val[1]]
+        if ans_val <= number_range:
+            q_list.append(
+                np.concatenate(
+                    (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
+                )
             )
-        )
-        ans_list.append(
-            vocab.parse(number_list[ans_val-1]).v
-        )
-        print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
+            ans_list.append(
+                vocab.parse(number_list[ans_val-1]).v
+            )
+            print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
 # TESTING
 q_list[0] = q_list[4]
@@ -59,8 +61,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.op_state = MemNet(less_D, state_vocab, label="op_state")
 
         # TODO: Make this adaptively large
-        input_keys = ['ONE', 'TWO', 'THREE', 'FOUR']
-        output_keys = ['TWO', 'THREE', 'FOUR', 'FIVE']
+        input_keys = number_list[:-1]
+        output_keys = number_list[1:]
 
         slow_net.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
                                                 input_keys=input_keys, output_keys=output_keys,
@@ -220,5 +222,70 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.count_reset, slow_net.op_state.mem.reset, synapse=None)
     nengo.Connection(env.gate, fast_net.speech.mem.gate, synapse=None)
 
-#sim = nengo.Simulator(model, dt=dt)
-#sim.run(3.0)
+    get_data = "file"
+    if get_data = "probe":
+        p_keys = nengo.Probe(env.env_keys, synapse=None)
+        p_learning = nengo.Probe(env.learning, synapse=None)
+        p_error = nengo.Probe(error, synapse=0.005)
+        p_conf = nengo.Probe(fast_net.conf.output)
+        p_recall = nengo.Probe(fast_net.recall.output, synapse=None)
+        p_final_ans = nengo.Probe(fast_net.final_cleanup.output)
+        p_speech = nengo.Probe(fast_net.speech.mem.output)
+
+        p_bg_in = nengo.Probe(slow_net.bg_main.input)
+        p_bg_out = nengo.Probe(slow_net.bg_main.output)
+
+        p_count_res = nengo.Probe(slow_net.count_res.mem.output)
+        p_count_fin = nengo.Probe(slow_net.count_fin.mem.output)
+        p_count_tot = nengo.Probe(slow_net.count_tot.mem.output)
+        p_ans_assoc = nengo.Probe(slow_net.ans_assoc.output)
+        p_thres_ens = nengo.Probe(thresh_ens)
+    else:
+        def file_func(filename):
+            fi = open(filename, "w")
+            def f(t, x):
+                fi.write("%s\n" %x)
+
+        p_keys = nengo.Node(file_func("p_keys"))
+        nengo.Connection(env.env_keys, p_keys synapse=None)
+        p_learning = nengo.Node(file_func("p_learning"))
+        nengo.Connection(env.learning, p_learning synapse=None)
+        p_error = nengo.Node(file_func("p_error"))
+        nengo.Connection(error, p_error, synapse=0.005)
+        p_conf = nengo.Node(file_func("p_conf"))
+        nengo.Connection(fast_net.conf.output)
+        p_recall = nengo.Node(file_func("p_recall"))
+        nengo.Connection(fast_net.recall.output, p_recall synapse=None)
+        p_final_ans = nengo.Node(file_func("p_final_ans"))
+        nengo.Connection(fast_net.final_cleanup.output)
+        p_speech = nengo.Node(file_func("p_speech"))
+        nengo.Connection(fast_net.speech.mem.output)
+
+        p_bg_in = nengo.Node(file_func("p_bg_in"))
+        nengo.Connection(slow_net.bg_main.input)
+        p_bg_out = nengo.Node(file_func("p_bg_out"))
+        nengo.Connection(slow_net.bg_main.output)
+
+        p_count_res = nengo.Node(file_func("p_count_res"))
+        nengo.Connection(slow_net.count_res.mem.output)
+        p_count_fin = nengo.Node(file_func("p_count_fin"))
+        nengo.Connection(slow_net.count_fin.mem.output)
+        p_count_tot = nengo.Node(file_func("p_count_tot"))
+        nengo.Connection(slow_net.count_tot.mem.output)
+        p_ans_assoc = nengo.Node(file_func("p_ans_assoc"))
+        nengo.Connection(slow_net.ans_assoc.output)
+        p_thres_ens = nengo.Node(file_func("p_thres_ens"))
+        nengo.Connection(thresh_ens)
+
+print("Building")
+sim = nengo.Simulator(model, dt=dt)
+
+print("Running")
+while env.env_cls.questions_answered < 2000:
+    sim.step()
+    if env.env_cls.time_since_last_answer > 7.0:
+        print("UH OH")
+        ipdb.set_trace()
+
+ipdb.set_trace()
+# maybe should have written the data to a file, instead of probes?

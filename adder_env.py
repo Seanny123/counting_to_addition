@@ -54,6 +54,8 @@ class AdderEnv():
         self.ans_arrive = 0.0
         self.time = 0.0
         self.chill = False
+        self.time_since_last_answer = 0.0
+        self.questions_answered = 0
 
     def sp_text(self, x):
         return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]
@@ -91,6 +93,7 @@ class AdderEnv():
         system again
         """
         self.time += dt
+        self.time_since_last_answer += dt
 
         max_sim = np.max(self.num_vocab.dot(x))
 
@@ -98,28 +101,27 @@ class AdderEnv():
         if max_sim > 0.3 and not self.chill:
 
             if self.ans_arrive == 0.0:
-                print("ANS %s" %t)
-                print("SIM %s" %max_sim)
                 self.gate = 1
                 self.ans_arrive = t
                 self.learning = True
 
                 correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
                 ans_text = self.sp_text(x)
+                self.time_since_last_answer = 0.0
+                self.questions_answered += 1
+                print("Questions answered %s" %self.questions_answered)
                 if correct_text != ans_text:
                     logging.debug("%s != %s" %(correct_text, ans_text))
                     print("%s != %s" %(correct_text, ans_text))
                     ipdb.set_trace()
 
             elif t > (self.ans_arrive + self.ans_duration):
-                print("chill: %s" %t)
                 self.ans_arrive = 0.0
                 self.gate = 0
                 self.chill = True
                 self.learning = False
 
-        elif max_sim < 0.3 and self.chill:
-            print("stop chilling: %s" %t)
+        elif max_sim < 0.2 and self.chill:
             
             if self.list_index < self.num_items - 1:
                 self.list_index += 1

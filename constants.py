@@ -4,4 +4,4 @@ less_D = 16
 dt = 0.001
 #dt = 0.01
 n_neurons = 100
-number_range = 4
+number_range = 8
