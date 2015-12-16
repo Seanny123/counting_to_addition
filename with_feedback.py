@@ -223,7 +223,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.gate, fast_net.speech.mem.gate, synapse=None)
 
     get_data = "file"
-    if get_data = "probe":
+    if get_data == "probe":
         p_keys = nengo.Probe(env.env_keys, synapse=None)
         p_learning = nengo.Probe(env.learning, synapse=None)
         p_error = nengo.Probe(error, synapse=0.005)
@@ -242,7 +242,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         p_thres_ens = nengo.Probe(thresh_ens)
     else:
         def file_func(filename):
-            fi = open(filename, "w")
+            fi = open("./data/filename", "w")
             def f(t, x):
                 fi.write("%s\n" %x)
 
@@ -288,4 +288,3 @@ while env.env_cls.questions_answered < 2000:
         ipdb.set_trace()
 
 ipdb.set_trace()
-# maybe should have written the data to a file, instead of probes?
