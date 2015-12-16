@@ -40,7 +40,7 @@ for val in itertools.product(number_list, number_list):
 
 # TESTING
 q_list[0] = q_list[3]
-ans_list[0] = ans_list[0]
+ans_list[0] = ans_list[3]
 
 ## Generate specialised vocabs
 state_vocab = spa.Vocabulary(less_D)
@@ -118,15 +118,21 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.bg_main = spa.BasalGanglia(main_actions)
         slow_net.thal_main = spa.Thalamus(slow_net.bg_main)
 
+        ans_boost = nengo.networks.Product(200, dimensions=D, input_magnitude=2)
+        nengo.Connection(slow_net.ans_assoc.output, ans_boost.A)
+        nengo.Connection(slow_net.comp_tot_fin.output, ans_boost.B,
+                         transform=np.ones((D,1)))
+        nengo.Connection(ans_boost.output, slow_net.answer.input)
+
+
         # had to put the assoc connections here because bugs
         # ideally they should be routable
         cortical_actions = spa.Actions(
-            "answer = ans_assoc",
             "res_mem = rmem_assoc, tot_mem = tmem_assoc",
             "count_res = res_assoc, count_tot = tot_assoc",
             "count_fin = fin_assoc",
             "comp_tot_fin_A = count_fin",
-            "comp_tot_fin_B = count_tot",
+            "comp_tot_fin_B = 0.5*count_tot",
         )
 
         slow_net.cortical = spa.Cortical(cortical_actions)
@@ -136,7 +142,9 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.op_in, slow_net.op_state.mem.input)
 
     with spa.SPA(vocabs=[vocab], label="Mem Net", seed=0) as fast_net:
-        fast_net.final_answer = spa.State(D)
+        fast_net.final_cleanup = spa.AssociativeMemory(input_vocab=vocab,
+                                                    threshold=0.5,
+                                                    wta_output=True)
 
         adder = nengo.networks.AssociativeMemory(input_vectors=q_list, n_neurons=n_neurons)
         adder.add_wta_network()
@@ -186,16 +194,17 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
         feedback_actions = spa.Actions(
             fast="conf --> speech = recall",
-            slow="1 - conf --> speech = 2.5*final_answer"
+            slow="1 - conf --> speech = 2.5*final_cleanup"
         )
         fast_net.feedback_bg = spa.BasalGanglia(feedback_actions)
         fast_net.feedback_thal = spa.Thalamus(fast_net.feedback_bg)
 
-    nengo.Connection(slow_net.answer.output, fast_net.final_answer.input)
+    nengo.Connection(slow_net.answer.output, fast_net.final_cleanup.input)
     nengo.Connection(fast_net.speech.mem.output, env.set_ans)
     # I don't know if sustaining this is absolutely necessary...
     # The actual answer is comming out of the env anyways
     nengo.Connection(env.reset, fast_net.speech.mem.reset, synapse=None)
+    nengo.Connection(env.reset, slow_net.count_res.mem.reset, synapse=None)
     nengo.Connection(env.gate, fast_net.speech.mem.gate, synapse=None)
 
 #sim = nengo.Simulator(model, dt=dt)

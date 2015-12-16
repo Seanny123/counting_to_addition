@@ -5,18 +5,19 @@ from mem_net import MemNet
 import numpy as np
 from collections import OrderedDict
 
-D = 64
+D = 128
 less_D = 32
+number_range = 8
+
 rng = np.random.RandomState(0)
-vocab = spa.Vocabulary(D, unitary=["ONE"], rng=rng)
-number_dict = {"ZERO":0, "ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
+vocab = spa.Vocabulary(D, unitary=["ONE"], rng=rng, max_similarity=0.05)
+number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
                "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
 number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 
-number_range = 5
-vocab.parse("ZERO")
 number_list = number_ordered.keys()
-for i in range(1, number_range):
+for i in range(number_range):
+    print(number_list[i])
     vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
 
 join_num = "+".join(number_list[0:number_range])
@@ -29,25 +30,27 @@ state_vocab.parse("RUN+NONE")
 
 num_vocab = vocab.create_subset(num_ord_filt.keys())
 
+gate_vocab = spa.Vocabulary(16)
+gate_vocab.parse("OPEN+CLOSE")
+
 model = spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0)
 
 with model:
     model.q1 = spa.State(D, vocab=num_vocab)
     model.q2 = spa.State(D, vocab=num_vocab)
     model.answer = spa.State(D, vocab=num_vocab)
-    # TODO: add connection from question to answer, maybe intermediate pop?
-    # Also going to need a bit of a gate...
 
     # maybe this should be a mem block?
     model.op_state = MemNet(less_D, state_vocab, label="op_state")
 
     # TODO: Make this adaptively large
-    input_keys = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR']
-    output_keys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']
+    input_keys = ['ONE', 'TWO', 'THREE', 'FOUR']
+    output_keys = ['TWO', 'THREE', 'FOUR', 'FIVE']
 
     model.res_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                             input_keys=input_keys, output_keys=output_keys,
-                                            wta_output=True)
+                                            wta_output=True,
+                                            threshold=0.4)
     model.count_res = MemNet(D, num_vocab, label="count_res")
     model.res_mem = MemNet(D, num_vocab, label="res_mem")
     model.rmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
@@ -55,14 +58,16 @@ with model:
 
     model.tot_assoc = spa.AssociativeMemory(input_vocab=num_vocab, output_vocab=num_vocab,
                                             input_keys=input_keys, output_keys=output_keys,
-                                            wta_output=True)
+                                            wta_output=True,
+                                            threshold=0.4)
     model.count_tot = MemNet(D, num_vocab, label="count_tot")
     model.tot_mem = MemNet(D, num_vocab, label="tot_mem")
     model.tmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
                                              wta_output=True)
 
-    model.tmem_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
-                                             wta_output=True)
+    model.ans_assoc = spa.AssociativeMemory(input_vocab=num_vocab,
+                                            inhibitable=True,
+                                            wta_output=True)
 
     model.count_fin = MemNet(D, num_vocab, label="count_fin")
 
@@ -77,7 +82,7 @@ with model:
 
     def q1_func(t):
         if(t < 0.08):
-            return "ONE"
+            return "THREE"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -85,7 +90,7 @@ with model:
 
     def q2_func(t):
         if(t < 0.08):
-            return "TWO"
+            return "ONE"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -125,17 +130,18 @@ with model:
         "--> count_res = q1*ONE, count_tot = ONE, fin_assoc = 2.5*q2, op_state = RUN" % (join_num, join_num,),
         ## If not done, prepare next increment
         cmp_fail=
-        "1.25*dot(op_state, RUN) - 0.5*comp_tot_fin + comp_inc_res - comp_load_res"
+        "dot(op_state, RUN) - 0.5*comp_tot_fin + 1.25*comp_inc_res - comp_load_res"
         "--> op_state = 0.5*RUN - NONE, rmem_assoc = 2.5*count_res, tmem_assoc = 2.5*count_tot, "
         "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
         "comp_load_res_A = res_mem, comp_load_res_B = comp_assoc, comp_assoc = 2.5*count_res",
         ## If we're done incrementing write it to the answer
         cmp_good=
-        "0.5*dot(op_state, RUN) + 0.5*comp_tot_fin"
-        "--> answer = 2.5*count_res, op_state=NONE",
+        "0.5*dot(op_state, RUN) + 0.35*comp_tot_fin"
+        "--> ans_assoc = 8*count_res, op_state = 0.5*RUN,"
+        "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE",
         ## Increment memory transfer
         increment=
-        "0.3*dot(op_state, RUN) + 1.2*comp_load_res - comp_inc_res"
+        "0.3*dot(op_state, RUN) + 1.2*comp_load_res - 1.25*comp_inc_res"
         "--> res_assoc = 2.5*res_mem, tot_assoc = 2.5*tot_mem, "
         "res_mem_gate = CLOSE, tot_mem_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
         "comp_load_res_A = 0.75*ONE, comp_load_res_B = 0.75*ONE, "
@@ -145,6 +151,11 @@ with model:
     model.bg = spa.BasalGanglia(actions)
     model.thal = spa.Thalamus(model.bg)
 
+    ans_boost = nengo.networks.Product(200, dimensions=D, input_magnitude=2)
+    nengo.Connection(model.ans_assoc.output, ans_boost.A)
+    nengo.Connection(model.comp_tot_fin.output, ans_boost.B,
+                     transform=np.ones((D,1)))
+    nengo.Connection(ans_boost.output, model.answer.input)
     # had to put the assoc connections here because bugs
     # ideally they should be routable
     cortical_actions = spa.Actions(
@@ -152,7 +163,7 @@ with model:
         "count_res = res_assoc, count_tot = tot_assoc",
         "count_fin = fin_assoc",
         "comp_tot_fin_A = count_fin",
-        "comp_tot_fin_B = count_tot",
+        "comp_tot_fin_B = 0.5*count_tot",
     )
 
     model.cortical = spa.Cortical(cortical_actions)

@@ -9,3 +9,6 @@ Text for hidden elements got hidden by some other elements
 Other bugs:
 When something can't be converted into a float in operations.py, a better error
 should be thrown
+cortical actions still doesn't support fucking scalar multiplication
+the associative memory module doesn't have n_neurons_per_ensemble
+there should really be a thresholding example with the clipped distribution
