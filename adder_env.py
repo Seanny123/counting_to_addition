@@ -25,6 +25,7 @@ def create_adder_env(q_list, ans_list, op_val, num_vocab):
         env.learning = nengo.Node(lambda t: env.env_cls.learning)
         env.gate = nengo.Node(lambda t: env.env_cls.gate)
         env.reset = nengo.Node(lambda t: env.env_cls.chill)
+        env.count_reset = nengo.Node(lambda t: -env.env_cls.learning)
 
     return env
 

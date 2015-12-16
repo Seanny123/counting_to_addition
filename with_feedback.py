@@ -1,5 +1,6 @@
 import nengo
 from nengo import spa
+from nengo.dists import Exponential, Choice, Uniform
 from mem_net import MemNet
 from adder_env import create_adder_env
 from constants import *
@@ -39,8 +40,8 @@ for val in itertools.product(number_list, number_list):
         print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
 # TESTING
-q_list[0] = q_list[3]
-ans_list[0] = ans_list[3]
+q_list[0] = q_list[4]
+ans_list[0] = ans_list[4]
 
 ## Generate specialised vocabs
 state_vocab = spa.Vocabulary(less_D)
@@ -82,6 +83,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
         slow_net.count_fin = MemNet(D, vocab, label="count_fin")
 
+        slow_net.tot_fin_simi = spa.State(1)
         slow_net.comp_tot_fin = spa.Compare(D)
         slow_net.fin_assoc = spa.AssociativeMemory(input_vocab=vocab,
                                                    wta_output=True)
@@ -98,14 +100,15 @@ with nengo.Network(label="Root Net", seed=0) as model:
             "--> count_res = q1*ONE, count_tot = ONE, fin_assoc = 2.5*q2, op_state = RUN" % (join_num, join_num,),
             ## If not done, prepare next increment
             cmp_fail=
-            "1.25*dot(op_state, RUN) - 0.5*comp_tot_fin + comp_inc_res - comp_load_res"
+            "dot(op_state, RUN) - tot_fin_simi + 1.25*comp_inc_res - comp_load_res"
             "--> op_state = 0.5*RUN - NONE, rmem_assoc = 2.5*count_res, tmem_assoc = 2.5*count_tot, "
             "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
             "comp_load_res_A = res_mem, comp_load_res_B = comp_assoc, comp_assoc = 2.5*count_res",
             ## If we're done incrementing write it to the answer
             cmp_good=
-            "0.5*dot(op_state, RUN) + 0.5*comp_tot_fin"
-            "--> ans_assoc = 8*count_res, op_state=NONE",
+            "0.5*dot(op_state, RUN) + tot_fin_simi"
+            "--> ans_assoc = 8*count_res, op_state = 0.5*RUN,"
+            "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE",
             ## Increment memory transfer
             increment=
             "0.3*dot(op_state, RUN) + 1.2*comp_load_res - comp_inc_res"
@@ -118,11 +121,17 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.bg_main = spa.BasalGanglia(main_actions)
         slow_net.thal_main = spa.Thalamus(slow_net.bg_main)
 
+        thr = 0.25
+        thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]), intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
+            eval_points=Uniform(thr, 1.1), n_eval_points=5000)
+        nengo.Connection(slow_net.comp_tot_fin.output, thresh_ens)
+        nengo.Connection(thresh_ens, slow_net.tot_fin_simi.input)
+
         ans_boost = nengo.networks.Product(200, dimensions=D, input_magnitude=2)
         nengo.Connection(slow_net.ans_assoc.output, ans_boost.A)
-        nengo.Connection(slow_net.comp_tot_fin.output, ans_boost.B,
+        nengo.Connection(thresh_ens, ans_boost.B,
                          transform=np.ones((D,1)))
-        nengo.Connection(ans_boost.output, slow_net.answer.input)
+        nengo.Connection(ans_boost.output, slow_net.answer.input, transform=2.5)
 
 
         # had to put the assoc connections here because bugs
@@ -143,7 +152,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
     with spa.SPA(vocabs=[vocab], label="Mem Net", seed=0) as fast_net:
         fast_net.final_cleanup = spa.AssociativeMemory(input_vocab=vocab,
-                                                    threshold=0.5,
+                                                    threshold=0.2,
                                                     wta_output=True)
 
         adder = nengo.networks.AssociativeMemory(input_vectors=q_list, n_neurons=n_neurons)
@@ -204,7 +213,11 @@ with nengo.Network(label="Root Net", seed=0) as model:
     # I don't know if sustaining this is absolutely necessary...
     # The actual answer is comming out of the env anyways
     nengo.Connection(env.reset, fast_net.speech.mem.reset, synapse=None)
-    nengo.Connection(env.reset, slow_net.count_res.mem.reset, synapse=None)
+    # reset all the counting network
+    nengo.Connection(env.count_reset, slow_net.count_res.mem.reset, synapse=None)
+    nengo.Connection(env.count_reset, slow_net.count_fin.mem.reset, synapse=None)
+    nengo.Connection(env.count_reset, slow_net.count_tot.mem.reset, synapse=None)
+    nengo.Connection(env.count_reset, slow_net.op_state.mem.reset, synapse=None)
     nengo.Connection(env.gate, fast_net.speech.mem.gate, synapse=None)
 
 #sim = nengo.Simulator(model, dt=dt)

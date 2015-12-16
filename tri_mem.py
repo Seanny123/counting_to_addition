@@ -1,5 +1,6 @@
 import nengo
 from nengo import spa
+from nengo.dists import Exponential, Choice, Uniform
 from mem_net import MemNet
 
 import numpy as np
@@ -39,6 +40,7 @@ with model:
     model.q1 = spa.State(D, vocab=num_vocab)
     model.q2 = spa.State(D, vocab=num_vocab)
     model.answer = spa.State(D, vocab=num_vocab)
+    model.tot_fin_simi = spa.State(1)
 
     # maybe this should be a mem block?
     model.op_state = MemNet(less_D, state_vocab, label="op_state")
@@ -82,7 +84,7 @@ with model:
 
     def q1_func(t):
         if(t < 0.08):
-            return "THREE"
+            return "ONE"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -90,7 +92,7 @@ with model:
 
     def q2_func(t):
         if(t < 0.08):
-            return "ONE"
+            return "THREE"
         #elif(0.2 < t < 0.3):
         #    return "TWO"
         else:
@@ -130,13 +132,13 @@ with model:
         "--> count_res = q1*ONE, count_tot = ONE, fin_assoc = 2.5*q2, op_state = RUN" % (join_num, join_num,),
         ## If not done, prepare next increment
         cmp_fail=
-        "dot(op_state, RUN) - 0.5*comp_tot_fin + 1.25*comp_inc_res - comp_load_res"
+        "dot(op_state, RUN) - tot_fin_simi + 1.25*comp_inc_res - comp_load_res"
         "--> op_state = 0.5*RUN - NONE, rmem_assoc = 2.5*count_res, tmem_assoc = 2.5*count_tot, "
         "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE, "
         "comp_load_res_A = res_mem, comp_load_res_B = comp_assoc, comp_assoc = 2.5*count_res",
         ## If we're done incrementing write it to the answer
         cmp_good=
-        "0.5*dot(op_state, RUN) + 0.35*comp_tot_fin"
+        "0.5*dot(op_state, RUN) + tot_fin_simi"
         "--> ans_assoc = 8*count_res, op_state = 0.5*RUN,"
         "count_res_gate = CLOSE, count_tot_gate = CLOSE, op_state_gate = CLOSE, count_fin_gate = CLOSE",
         ## Increment memory transfer
@@ -151,9 +153,16 @@ with model:
     model.bg = spa.BasalGanglia(actions)
     model.thal = spa.Thalamus(model.bg)
 
+    # Make a tresholding population and shove comp_tot_fin through it
+    thr = 0.3
+    thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]), intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
+        eval_points=Uniform(thr, 1.1), n_eval_points=5000)
+    nengo.Connection(model.comp_tot_fin.output, thresh_ens)
+    nengo.Connection(thresh_ens, model.tot_fin_simi.input)
+
     ans_boost = nengo.networks.Product(200, dimensions=D, input_magnitude=2)
     nengo.Connection(model.ans_assoc.output, ans_boost.A)
-    nengo.Connection(model.comp_tot_fin.output, ans_boost.B,
+    nengo.Connection(thresh_ens, ans_boost.B,
                      transform=np.ones((D,1)))
     nengo.Connection(ans_boost.output, model.answer.input)
     # had to put the assoc connections here because bugs
