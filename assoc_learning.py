@@ -39,7 +39,7 @@ for val in itertools.product(number_list, number_list):
         print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
 
 num_items = len(q_list)
-reps = 250
+reps = 500
 dt = 0.001
 period = 0.4
 T = period*num_items*reps
@@ -176,3 +176,11 @@ plt.show()
 plt.show()
 """
 ipdb.set_trace()
+
+np.savez_compressed("data/learn_fig_data", t=t, p_keys = sim.data[p_keys], p_values = sim.data[p_values], p_learning = sim.data[p_learning], p_error = sim.data[p_error], p_recall = sim.data[p_recall])
+
+keys = af["p_keys"]
+values = af["p_values"]
+learning = af["p_learning"]
+error = af["p_error"]
+recall = af["p_recall"]

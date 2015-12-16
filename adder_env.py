@@ -12,9 +12,9 @@ logging.basicConfig(filename='env.log',level=logging.DEBUG)
 
 # I'm pretty sure the gate is fucking up
 
-def create_adder_env(q_list, ans_list, op_val, num_vocab):
+def create_adder_env(q_list, ans_list, op_val, num_vocab, ans_dur=0.3):
     with nengo.Network(label="env") as env:
-        env.env_cls = AdderEnv(q_list, ans_list, op_val, num_vocab)
+        env.env_cls = AdderEnv(q_list, ans_list, op_val, num_vocab, ans_dur)
 
         env.get_ans = nengo.Node(env.env_cls.get_answer)
         env.set_ans = nengo.Node(env.env_cls.set_answer, size_in=D)
@@ -32,10 +32,10 @@ def create_adder_env(q_list, ans_list, op_val, num_vocab):
 
 class AdderEnv():
 
-    def __init__(self, q_list, ans_list, op_val, num_vocab):
+    def __init__(self, q_list, ans_list, op_val, num_vocab, ans_dur):
         ## Bunch of time constants
         self.rest = 0.05
-        self.ans_duration = 0.3
+        self.ans_duration = ans_dur
         self.q_duration = 0.08
         self.op_duration = 0.05
 
@@ -121,7 +121,7 @@ class AdderEnv():
                 self.chill = True
                 self.learning = False
 
-        elif max_sim < 0.2 and self.chill:
+        elif max_sim < 0.1 and self.chill:
             
             if self.list_index < self.num_items - 1:
                 self.list_index += 1
