@@ -1,7 +1,1 @@
-- Present the results up to that point anyways...
-- Make the other plots
-- Finish the other explanations
-- Update the README
-- Add the report to the repository
-- Upload the collected data to figshare or something?
-- Try the other vOja stuff
+- Try learning without the silly constraint on semantic pointers
