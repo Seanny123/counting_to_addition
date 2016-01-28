@@ -1,4 +1,4 @@
-# final successful version with associative memory
+# same as assoc learning, but with no unitary vector constraint
 
 import nengo
 from nengo import spa
@@ -20,7 +20,7 @@ number_range = 4
 number_list = number_ordered.keys()
 for i in range(number_range):
     print(number_list[i])
-    vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
+    vocab.parse(number_list[i])
 
 model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
 n_neurons = 100
@@ -179,7 +179,7 @@ plt.show()
 """
 ipdb.set_trace()
 
-np.savez_compressed("data/learn_fig_data", t=t, p_keys = sim.data[p_keys], p_values = sim.data[p_values], p_learning = sim.data[p_learning], p_error = sim.data[p_error], p_recall = sim.data[p_recall])
+np.savez_compressed("data/no_unitary_learn_fig_data", t=t, p_keys = sim.data[p_keys], p_values = sim.data[p_values], p_learning = sim.data[p_learning], p_error = sim.data[p_error], p_recall = sim.data[p_recall])
 
 keys = af["p_keys"]
 values = af["p_values"]

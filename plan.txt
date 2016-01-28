@@ -1,1 +1,6 @@
-- Try learning without the silly constraint on semantic pointers
+- Switch the vocab on the normal counting circuit
+- Finish explanations
+- Make plots and insert them
+- Write dyscalculia part
+- Get Aaron to review it
+- Send it to Chris after Aaron
