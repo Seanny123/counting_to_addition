@@ -10,7 +10,6 @@ import logging
 
 logging.basicConfig(filename='env.log',level=logging.DEBUG)
 
-# I'm pretty sure the gate is fucking up
 
 def create_adder_env(q_list, ans_list, op_val, num_vocab, ans_dur=0.3):
     with nengo.Network(label="env") as env:

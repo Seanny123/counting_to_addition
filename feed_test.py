@@ -1,3 +1,5 @@
+# I honestly have no idea what this is testing.
+
 import nengo
 from nengo import spa
 

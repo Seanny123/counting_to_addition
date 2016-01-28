@@ -125,6 +125,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.bg_main = spa.BasalGanglia(main_actions)
         slow_net.thal_main = spa.Thalamus(slow_net.bg_main)
 
+        # WTF is this for?
         thr = 0.25
         thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]), intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
             eval_points=Uniform(thr, 1.1), n_eval_points=5000)
@@ -154,7 +155,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.q_in[:D], slow_net.q2.input)
     nengo.Connection(env.op_in, slow_net.op_state.mem.input)
 
-    with spa.SPA(vocabs=[vocab], label="Mem Net", seed=0) as fast_net:
+    with spa.SPA(vocabs=[vocab], label="Fast Net", seed=0) as fast_net:
         fast_net.final_cleanup = spa.AssociativeMemory(input_vocab=vocab,
                                                     threshold=0.2,
                                                     wta_output=True)

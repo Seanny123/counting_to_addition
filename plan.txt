@@ -1,6 +1,5 @@
 - Switch the vocab on the normal counting circuit
-- Finish explanations
+- Put the two circuit together and make a plot of when the switch happens
 - Make plots and insert them
-- Write dyscalculia part
-- Get Aaron to review it
-- Send it to Chris after Aaron
+- Get Aaron and Chris to review it
+- Bonus: Implement subtraction
