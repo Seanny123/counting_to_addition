@@ -33,7 +33,6 @@ for i in range(number_range):
 
 join_num = "+".join(number_list[0:number_range])
 
-# Filter for max count
 q_list = []
 ans_list = []
 for val in itertools.product(number_list, number_list):

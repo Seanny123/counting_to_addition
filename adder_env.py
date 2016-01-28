@@ -11,13 +11,14 @@ import logging
 logging.basicConfig(filename='env.log',level=logging.DEBUG)
 
 
-def create_adder_env(q_list, ans_list, op_val, num_vocab, ans_dur=0.3):
+def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0.3):
     with nengo.Network(label="env") as env:
-        env.env_cls = AdderEnv(q_list, ans_list, op_val, num_vocab, ans_dur)
+        env.env_cls = AdderEnv(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur)
 
         env.get_ans = nengo.Node(env.env_cls.get_answer)
         env.set_ans = nengo.Node(env.env_cls.set_answer, size_in=D)
         env.env_keys = nengo.Node(env.env_cls.input_func)
+        env.env_norm_keys = nengo.Node(env.env_cls.input_func_normed)
 
         env.op_in = nengo.Node(env.env_cls.op_state_input)
         env.q_in = nengo.Node(env.env_cls.q_inputs)
@@ -31,7 +32,7 @@ def create_adder_env(q_list, ans_list, op_val, num_vocab, ans_dur=0.3):
 
 class AdderEnv():
 
-    def __init__(self, q_list, ans_list, op_val, num_vocab, ans_dur):
+    def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur):
         ## Bunch of time constants
         self.rest = 0.05
         self.ans_duration = ans_dur
@@ -41,6 +42,7 @@ class AdderEnv():
         ## Value variables
         self.list_index = 0
         self.q_list = q_list
+        self.q_norm_list = q_norm_list
         self.ans_list = ans_list
         self.op_val = op_val
         self.num_items = len(q_list)
@@ -50,6 +52,7 @@ class AdderEnv():
 
         ## Timing variables
         self.learning = False
+        self.voja_learning = False
         self.ans_arrive = 0.0
         self.time = 0.0
         self.chill = False
@@ -62,6 +65,12 @@ class AdderEnv():
     def input_func(self, t):
         if self.time > self.rest:
             return self.q_list[self.indices[self.list_index]]
+        else:
+            return np.zeros(2*D)
+
+    def input_func_normed(self, t):
+        if self.time > self.rest:
+            return self.q_norm_list[self.indices[self.list_index]]
         else:
             return np.zeros(2*D)
 
@@ -90,6 +99,10 @@ class AdderEnv():
         detected by the norm not being (effectively) zero, give feedback for
         a certain amount of time before resetting the answer and starting the
         system again
+
+        this is basically a temporally sensitive state machine, however
+        I don't know of any state machine libraries for Python, so this is
+        what you get instead...
         """
         self.time += dt
         self.time_since_last_answer += dt
@@ -112,6 +125,7 @@ class AdderEnv():
                 if correct_text != ans_text:
                     logging.debug("%s != %s" %(correct_text, ans_text))
                     print("%s != %s" %(correct_text, ans_text))
+                    # This should just change the learning, not totally stop the simulation
                     ipdb.set_trace()
 
             elif t > (self.ans_arrive + self.ans_duration):

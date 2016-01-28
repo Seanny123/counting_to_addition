@@ -1,4 +1,3 @@
-- Switch the vocab on the normal counting circuit
 - Put the two circuit together and make a plot of when the switch happens
 - Make plots and insert them
 - Get Aaron and Chris to review it
