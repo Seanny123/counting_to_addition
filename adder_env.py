@@ -25,7 +25,7 @@ def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0
         env.learning = nengo.Node(lambda t: env.env_cls.learning)
         env.gate = nengo.Node(lambda t: env.env_cls.gate)
         env.reset = nengo.Node(lambda t: env.env_cls.chill)
-        env.count_reset = nengo.Node(lambda t: -env.env_cls.learning)
+        env.count_reset = nengo.Node(lambda t: -env.env_cls.learning - 1)
 
     return env
 
@@ -51,8 +51,7 @@ class AdderEnv():
         self.num_vocab = num_vocab
 
         ## Timing variables
-        self.learning = False
-        self.voja_learning = False
+        self.learning = -1
         self.ans_arrive = 0.0
         self.time = 0.0
         self.chill = False
@@ -62,6 +61,7 @@ class AdderEnv():
     def sp_text(self, x):
         return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]
 
+    # TODO: These functions should be combined as a closure
     def input_func(self, t):
         if self.time > self.rest:
             return self.q_list[self.indices[self.list_index]]
@@ -107,15 +107,16 @@ class AdderEnv():
         self.time += dt
         self.time_since_last_answer += dt
 
-        max_sim = np.max(self.num_vocab.dot(x))
+        max_sim = np.max(np.dot(self.num_vocab.vectors, x))
 
         # while getting answer
-        if max_sim > 0.3 and not self.chill:
+        if max_sim > 0.45 and not self.chill:
 
+            # when the answer first arrives
             if self.ans_arrive == 0.0:
                 self.gate = 1
                 self.ans_arrive = t
-                self.learning = True
+                self.learning = 0
 
                 correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
                 ans_text = self.sp_text(x)
@@ -128,14 +129,16 @@ class AdderEnv():
                     # This should just change the learning, not totally stop the simulation
                     ipdb.set_trace()
 
+            # after we're done sustaining the answer
             elif t > (self.ans_arrive + self.ans_duration):
                 self.ans_arrive = 0.0
                 self.gate = 0
                 self.chill = True
-                self.learning = False
+                self.learning = -1
 
-        elif max_sim < 0.1 and self.chill:
-            
+        elif max_sim < 0.01 and self.chill:
+            # OMGF WHY IS THIS NEVER EXECUTED
+            print("NO CHILL: %s" %t)
             if self.list_index < self.num_items - 1:
                 self.list_index += 1
             else:

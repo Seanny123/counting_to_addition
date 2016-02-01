@@ -5,6 +5,7 @@ Basal ganglia labels not updating on reload
 SPA module outputting scalar balue not recognized as such
 Deleting a node that was initially typoed caused an error?
 Text for hidden elements got hidden by some other elements
+mag test causes an error in spa similarity plot
 
 Other bugs:
 When something can't be converted into a float in operations.py, a better error
