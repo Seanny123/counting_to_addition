@@ -23,8 +23,6 @@ def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0
         env.op_in = nengo.Node(env.env_cls.op_state_input)
         env.q_in = nengo.Node(env.env_cls.q_inputs)
         env.learning = nengo.Node(lambda t: env.env_cls.learning)
-        env.gate = nengo.Node(lambda t: env.env_cls.gate)
-        env.reset = nengo.Node(lambda t: env.env_cls.chill)
         env.count_reset = nengo.Node(lambda t: -env.env_cls.learning - 1)
 
     return env
@@ -32,7 +30,7 @@ def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0
 
 class AdderEnv():
 
-    def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur):
+    def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur, filename="paper2_reactions.txt"):
         ## Bunch of time constants
         self.rest = 0.05
         self.ans_duration = ans_dur
@@ -47,29 +45,35 @@ class AdderEnv():
         self.op_val = op_val
         self.num_items = len(q_list)
         self.indices = range(self.num_items)
-        self.gate = 0
         self.num_vocab = num_vocab
 
         ## Timing variables
         self.learning = -1
         self.ans_arrive = 0.0
         self.time = 0.0
-        self.chill = False
-        self.time_since_last_answer = 0.0
+        self.train = False
+        self.reset = False
+        # For measuring progress
         self.questions_answered = 0
+        # For detecting a crash
+        self.time_since_last_answer = 0.0
+
+        # Logging for reaction times
+        self.fi = open("data/%s" %filename, "w")
+        self.react_time = open("data/paper2_react_time.txt", "w")
 
     def sp_text(self, x):
         return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]
 
     # TODO: These functions should be combined as a closure
     def input_func(self, t):
-        if self.time > self.rest:
+        if self.time > self.rest and not self.reset:
             return self.q_list[self.indices[self.list_index]]
         else:
             return np.zeros(2*D)
 
     def input_func_normed(self, t):
-        if self.time > self.rest:
+        if self.time > self.rest and not self.reset:
             return self.q_norm_list[self.indices[self.list_index]]
         else:
             return np.zeros(2*D)
@@ -103,48 +107,60 @@ class AdderEnv():
         this is basically a temporally sensitive state machine, however
         I don't know of any state machine libraries for Python, so this is
         what you get instead...
+
+        WHY DO I HAVE SUCH A HARD TIME WRITING STATE MACHINES
         """
         self.time += dt
         self.time_since_last_answer += dt
 
         max_sim = np.max(np.dot(self.num_vocab.vectors, x))
 
-        # while getting answer
-        if max_sim > 0.45 and not self.chill:
+        # when an answer arrives, note it's time of arrival and turn on learning
+        if max_sim > 0.45 and self.ans_arrive == 0.0 and not self.train:
+            self.ans_arrive = t
+            self.learning = 0
+            self.train = True
 
-            # when the answer first arrives
-            if self.ans_arrive == 0.0:
-                self.gate = 1
-                self.ans_arrive = t
-                self.learning = 0
+            # check the answer is correct
+            correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
+            ans_text = self.sp_text(x)
+            self.react_time.write("%s\n" %(self.time_since_last_answer))
+            self.time_since_last_answer = 0.0
+            self.questions_answered += 1
+            print("Question answered %s at %s" %(self.questions_answered, t))
+            self.fi.write("Question answered %s at %s\n" %(self.questions_answered, t))
+            self.fi.write("max_sim: %s\n" %max_sim)
+            if correct_text != ans_text:
+                logging.debug("%s != %s" %(correct_text, ans_text))
+                print("%s != %s" %(correct_text, ans_text))
+                self.fi.write("Error: %s\n" %t)
+                # This should just change the learning, not totally stop the simulation
+                #ipdb.set_trace()
 
-                correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
-                ans_text = self.sp_text(x)
-                self.time_since_last_answer = 0.0
-                self.questions_answered += 1
-                print("Questions answered %s" %self.questions_answered)
-                if correct_text != ans_text:
-                    logging.debug("%s != %s" %(correct_text, ans_text))
-                    print("%s != %s" %(correct_text, ans_text))
-                    # This should just change the learning, not totally stop the simulation
-                    ipdb.set_trace()
+        # sustain the answer for training purposes
 
-            # after we're done sustaining the answer
-            elif t > (self.ans_arrive + self.ans_duration):
+        # after we're done sustaining the answer
+        # turn of the learning and the answer arrival time
+        # wait until the similarity goes down before asking for a new question
+        if t > (self.ans_arrive + self.ans_duration) and self.train:
+            if not self.reset:
                 self.ans_arrive = 0.0
-                self.gate = 0
-                self.chill = True
                 self.learning = -1
+                self.reset = True
+                self.fi.write("Turning off: %s\n" %t)
 
-        elif max_sim < 0.01 and self.chill:
-            # OMGF WHY IS THIS NEVER EXECUTED
-            print("NO CHILL: %s" %t)
-            if self.list_index < self.num_items - 1:
-                self.list_index += 1
-            else:
-                shuffle(self.indices)
-                self.list_index = 0
+            if max_sim < 0.1:
+                self.fi.write("Next question: %s\n" %t)
+                self.fi.write("max_sim: %s\n" %max_sim)
+                self.time = 0.0
+                self.train = False
+                self.reset = False
 
-
-            self.chill = False
-            self.time = 0.0
+                if self.list_index < self.num_items - 1:
+                    self.list_index += 1
+                    print("Increment:: %s" %self.list_index)
+                else:
+                    print("Shuffling\n")
+                    self.fi.write("Shuffling\n")
+                    shuffle(self.indices)
+                    self.list_index = 0

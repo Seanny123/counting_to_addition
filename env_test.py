@@ -56,16 +56,12 @@ with nengo.Network(label="test") as model:
     # learning is maintained for a given interval
     learn_node = nengo.Node(size_in=1)
 
-    # gate is '0' while waiting for answer
-    gate_node = nengo.Node(size_in=1)
-
     nengo.Connection(env.q_in, q_node, synapse=None)
     nengo.Connection(env.op_in, op_node, synapse=None)
     nengo.Connection(env.env_keys, in_node, synapse=None)
     nengo.Connection(ans_in, env.set_ans, synapse=None)
     nengo.Connection(env.get_ans, ans_out, synapse=None)
     nengo.Connection(env.learning, learn_node, synapse=None)
-    nengo.Connection(env.gate, gate_node, synapse=None)
 
     p_q = nengo.Probe(env.q_in, synapse=None)
     p_op = nengo.Probe(env.op_in, synapse=None)
