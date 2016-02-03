@@ -30,7 +30,7 @@ def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0
 
 class AdderEnv():
 
-    def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur, filename="paper2_reactions.txt"):
+    def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur, filename="paper5_reactions.txt"):
         ## Bunch of time constants
         self.rest = 0.05
         self.ans_duration = ans_dur
@@ -60,7 +60,7 @@ class AdderEnv():
 
         # Logging for reaction times
         self.fi = open("data/%s" %filename, "w")
-        self.react_time = open("data/paper2_react_time.txt", "w")
+        self.react_time = open("data/paper5_react_time.txt", "w")
 
     def sp_text(self, x):
         return self.num_vocab.text(x).split(';')[0].split(".")[1][2:]

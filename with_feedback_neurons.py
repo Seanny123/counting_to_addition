@@ -264,22 +264,24 @@ with nengo.Network(label="Root Net", seed=0) as model:
     if get_data == "probe":
         p_keys = nengo.Probe(env.env_keys, synapse=None, sample_every=0.025)
         #p_learning = nengo.Probe(env.learning, synapse=None, sample_every=0.025)
-        p_error = nengo.Probe(error, synapse=0.005, sample_every=0.01)
-        p_conf = nengo.Probe(fast_net.conf.output, synapse=0.005, sample_every=0.025)
-        p_recall = nengo.Probe(fast_net.recall.output, synapse=0.005, sample_every=0.01)
+        #p_error = nengo.Probe(error, synapse=0.005, sample_every=0.01)
+        #p_conf = nengo.Probe(fast_net.conf.output, synapse=0.005, sample_every=0.025)
+        #p_recall = nengo.Probe(fast_net.recall.output, synapse=0.005, sample_every=0.01)
         #p_final_ans = nengo.Probe(fast_net.final_cleanup.output, synapse=0.005, sample_every=0.01)
         #p_speech = nengo.Probe(fast_net.speech.output, synapse=0.005, sample_every=0.01)
 
         #p_bg_in = nengo.Probe(slow_net.bg_main.input, sample_every=0.01)
         #p_bg_out = nengo.Probe(slow_net.bg_main.output, sample_every=0.01)
 
-        p_trans = nengo.Probe(fast_net.feedback_bg.output, sample_every=0.01)
+        #p_trans = nengo.Probe(fast_net.feedback_bg.output, sample_every=0.01)
 
         p_count_res = nengo.Probe(slow_net.count_res.mem.output, synapse=0.005, sample_every=0.005)
         p_count_fin = nengo.Probe(slow_net.count_fin.mem.output, synapse=0.005, sample_every=0.005)
         p_count_tot = nengo.Probe(slow_net.count_tot.mem.output, synapse=0.005, sample_every=0.005)
         #p_ans_assoc = nengo.Probe(slow_net.ans_assoc.output, synapse=0.005, sample_every=0.01)
         #p_thres_ens = nengo.Probe(thresh_ens, sample_every=0.01)
+        spike_pop = slow_net.count_res.mem.mem.add_neuron_output()
+        p_neuron = nengo.Probe(spike_pop)
 
     elif get_data == "file":
         def file_func(filename, sample_every=0.01):
@@ -338,15 +340,15 @@ ipdb.set_trace()
 
 #np.savez_compressed("data/paper4_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot], p_ans_assoc=sim.data[p_ans_assoc], p_thres_ens=sim.data[p_thres_ens])
 
-np.savez_compressed("data/paper5_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
+np.savez_compressed("data/paper4_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot], p_neuron=sim.data[p_neuron])
 
 
-np.savez_compressed("data/paper5_bg_data", p_bg_in=sim.data[p_bg_in], p_bg_out=sim.data[p_bg_out])
+np.savez_compressed("data/paper4_bg_data", p_bg_in=sim.data[p_bg_in], p_bg_out=sim.data[p_bg_out])
 
 #np.savez_compressed("data/paper4_learning_data", p_keys=sim.data[p_keys], p_learning=sim.data[p_learning], p_error=sim.data[p_error], p_conf=sim.data[p_conf], p_recall=sim.data[p_recall], p_final_ans=sim.data[p_final_ans], p_speech=sim.data[p_speech])
 
-np.savez_compressed("data/paper5_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall])
+np.savez_compressed("data/paper4_learning_data", p_keys=sim.data[p_keys])
 
-np.savez_compressed("data/paper5_time", t=sim.trange())
+np.savez_compressed("data/paper4_time", t=sim.trange())
 
-np.savez_compressed("data/vocab5", vocab=vocab.vectors)
+np.savez_compressed("data/vocab4", vocab=vocab.vectors)
