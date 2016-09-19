@@ -1,3 +1,5 @@
+# first use of slow_net and fast_net
+
 import nengo
 from nengo import spa
 from nengo.dists import Exponential, Choice, Uniform

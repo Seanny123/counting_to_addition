@@ -1,3 +1,5 @@
+# first sucessful slow counting network implementation
+
 import nengo
 from nengo import spa
 from nengo.dists import Exponential, Choice, Uniform
