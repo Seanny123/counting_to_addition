@@ -1,67 +1,39 @@
 # final full network version
 
-import nengo
-from nengo import spa
-from nengo.dists import Exponential, Choice, Uniform
 from mem_net import MemNet
 from adder_env import create_adder_env
 from constants import *
-from hetero_mem import *
+from hetero_mem import build_hetero_mem
+from utils import gen_vocab, gen_env_list
 
+import nengo
+from nengo import spa
+from nengo.dists import Exponential, Choice, Uniform
 import numpy as np
-from collections import OrderedDict
-import itertools
 import ipdb
+
+
+## Learning rates
+pes_rate=0.01,
+voja_rate=0.005
 
 ## Generate the vocab
 rng = np.random.RandomState(0)
-vocab = spa.Vocabulary(D, rng=rng)
+D = 32
 number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
                "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
-number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
+
 # This should be set to 10 for the actual final test
-number_range = 9
-number_list = number_ordered.keys()
+max_sum = 9
+max_num = max_sum - 2
 
-def nearest(d):
-    from scipy.linalg import sqrtm
-    p = nengo.dists.UniformHypersphere(surface=True).sample(d, d)
-    return np.dot(p, np.linalg.inv(sqrtm(np.dot(p.T, p))))
-orth_vecs = nearest(D)
+number_list, vocab = gen_vocab(number_dict, max_num, D, rng)
 
-for i in range(number_range):
-    print(number_list[i])
-    vocab.add(number_list[i], orth_vecs[i])
-
-join_num = "+".join(number_list[0:number_range])
+join_num = "+".join(number_list[0:max_num])
 
 ## Create inputs and expected outputs
-q_list = []
-q_norm_list = []
-ans_list = []
-M = 0
-for val in itertools.product(number_list, number_list):
-    # Filter for min count
-    if val[0] <= val[1]:
-        ans_val = number_dict[val[0]] + number_dict[val[1]]
-        if ans_val <= number_range:
-            q_list.append(
-                np.concatenate(
-                    (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
-                )
-            )
-            q_norm_list.append(
-                np.concatenate(
-                    (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
-                ) / np.sqrt(2.0)
-            )
-            assert np.allclose(np.linalg.norm(q_norm_list[-1]), 1)
-            ans_list.append(
-                vocab.parse(number_list[ans_val-1]).v
-            )
-            M += 1
-            print("%s+%s=%s" %(val[0], val[1], number_list[ans_val-1]))
-print("M: %s" %M)
+q_list, q_norm_list, ans_list = gen_env_list(number_dict, number_list, vocab, max_sum)
+
 ## Generate specialised vocabs
 state_vocab = spa.Vocabulary(less_D)
 state_vocab.parse("RUN+NONE")
@@ -164,8 +136,10 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.thal_main = spa.Thalamus(slow_net.bg_main)
 
         ## Threshold preventing premature influence from comp_tot_fin similarity
+        # TODO: Replace with preset
         thr = 0.25
-        thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]), intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
+        thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]),
+            intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
             eval_points=Uniform(thr, 1.1), n_eval_points=5000)
         nengo.Connection(slow_net.comp_tot_fin.output, thresh_ens)
         nengo.Connection(thresh_ens, slow_net.tot_fin_simi.input)
@@ -201,7 +175,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         # This is usually calculated
         c = 0.51
         e = encoders(np.array(q_norm_list), K, rng)
-        fast_net.het_mem = build_hetero_mem(D*2, D, e, c)
+        fast_net.het_mem = build_hetero_mem(D*2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
 
         ## Calculate the error from the environment and use it to drive the decoder learning
         # Create the error population

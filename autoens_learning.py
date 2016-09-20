@@ -15,37 +15,22 @@ import itertools
 from random import shuffle
 import ipdb
 
-D = 32
+## Generate the vocab
 rng = np.random.RandomState(0)
-vocab = spa.Vocabulary(D)
-number_dict = {"ZERO":0, "ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
+D = 32
+number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
                "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
-number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 
-number_range = 4
-vocab.parse("ZERO")
-number_list = number_ordered.keys()
-for i in range(1, number_range):
-    print(number_list[i+1])
-    vocab.add(number_list[i+1], vocab.parse("%s*ONE" % number_list[i]))
+# This should be set to 10 for the actual final test
+max_sum = 9
+max_num = max_sum - 2
 
-model = spa.SPA(vocabs=[vocab], label="Count Net", seed=0)
-n_neurons = 800
+number_list, vocab = gen_vocab(number_dict, max_num, D, rng)
 
-q_list = []
-ans_list = []
-for val in itertools.product(number_list, number_list):
-    ans_val = number_dict[val[0]] + number_dict[val[1]]
-    if ans_val < number_range:
-        q_list.append(
-            np.concatenate(
-                (vocab.parse(val[0]).v, vocab.parse(val[1]).v)
-            )
-        )
-        ans_list.append(
-            vocab.parse(number_list[ans_val]).v
-        )
-        print("%s+%s=%s" %(val[0], val[1], ans_val))
+join_num = "+".join(number_list[0:max_num])
+
+## Create inputs and expected outputs
+q_list, _, ans_list = gen_env_list(number_dict, number_list, vocab, max_sum)
 
 num_items = len(q_list)
 dt = 0.001
