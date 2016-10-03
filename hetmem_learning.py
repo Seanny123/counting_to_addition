@@ -7,6 +7,7 @@
 # - look for decoders who's values change with every question
 
 from utils import gen_env_list, gen_vocab
+from hetero_mem import build_hetero_mem, encoders
 from constants import n_neurons, D, dt
 
 import nengo
@@ -15,6 +16,10 @@ from nengo import spa
 import numpy as np
 
 plot_res = False
+
+# Learning rates
+pes_rate = 0.01
+voja_rate = 0.005
 
 ## Generate the vocab
 rng = np.random.RandomState(0)
@@ -29,7 +34,7 @@ number_list, vocab = gen_vocab(number_dict, max_num, D, rng)
 join_num = "+".join(number_list[0:max_num])
 
 ## Create inputs and expected outputs
-q_list, q_normed_list, ans_list = gen_env_list(number_dict, number_list, vocab, max_sum)
+q_list, q_norm_list, ans_list = gen_env_list(number_dict, number_list, vocab, max_sum)
 
 num_items = len(q_list)
 period = 0.3
@@ -61,28 +66,33 @@ def cycle_array(x, period, dt=0.001):
 
 
 with spa.SPA(vocabs=[vocab], label="Fast Net", seed=0) as model:
-    env_keys = nengo.Node(cycle_array(q_normed_list, period, dt))
+    env_keys = nengo.Node(cycle_array(q_norm_list, period, dt))
     env_values = nengo.Node(cycle_array(ans_list, period, dt))
     shuffle_node = nengo.Node(shuffle_func)
 
-    ad_neurons = 2400 # this is what the hetmem uses
-    adder = nengo.Ensemble(ad_neurons, D*2, radius=2.0)
     recall = nengo.Node(size_in=D)
     learning = nengo.Node(output=lambda t: -int(t >= (T-period*num_items)))
 
-    nengo.Connection(env_keys, adder)
-    conn_out = nengo.Connection(adder, recall, learning_rule_type=nengo.PES(1e-4),
-                                function=lambda x: np.zeros(D))
+    ## Generate hetero mem
+    K = 400
+    # This is usually calculated
+    c = 0.51
+    e = encoders(np.array(q_norm_list), K, rng)
+    het_mem = build_hetero_mem(D*2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
+
+    nengo.Connection(env_keys, het_mem.input, synapse=None)
+    nengo.Connection(het_mem.output, recall)
 
     # Create the error population
     error = nengo.Ensemble(n_neurons*8, D)
     nengo.Connection(learning, error.neurons, transform=[[10.0]]*n_neurons*8,
                      synapse=None)
+    nengo.Connection(learning, het_mem.in_conn.learning_rule, synapse=None)
 
     # Calculate the error and use it to drive the PES rule
     nengo.Connection(env_values, error, transform=-1, synapse=None)
     nengo.Connection(recall, error, synapse=None)
-    nengo.Connection(error, conn_out.learning_rule)
+    nengo.Connection(error, het_mem.out_conn.learning_rule)
 
     # Setup probes
     p_keys = nengo.Probe(env_keys, synapse=None, sample_every=0.01)
@@ -90,7 +100,7 @@ with spa.SPA(vocabs=[vocab], label="Fast Net", seed=0) as model:
     p_learning = nengo.Probe(learning, synapse=None, sample_every=0.01)
     p_error = nengo.Probe(error, synapse=0.01)
     p_recall = nengo.Probe(recall, synapse=None, sample_every=0.01)
-    p_weights = nengo.Probe(conn_out, 'weights', synapse=None, sample_every=0.01)
+    p_weights = nengo.Probe(het_mem.out_conn, 'weights', synapse=None, sample_every=0.01)
 
 sim = nengo.Simulator(model, dt=dt)
 sim.run(T)
@@ -130,7 +140,7 @@ if plot_res:
     plt.show()
 
 # I should make a wrapper for doing this quickly
-base_name = "autoens"
+base_name = "hetmem"
 np.savez_compressed("data/%s_learning_data" % base_name, p_keys=sim.data[p_keys], p_recall=sim.data[p_recall],
                     p_error=sim.data[p_error], p_weights=sim.data[p_weights], p_values=sim.data[p_values])
 np.savez_compressed("data/%s_learning_vocab" % base_name, keys=vocab.keys, vecs=vocab.vectors)
