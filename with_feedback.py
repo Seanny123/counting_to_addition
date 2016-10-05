@@ -3,7 +3,7 @@
 from mem_net import MemNet
 from adder_env import create_adder_env
 from constants import *
-from hetero_mem import build_hetero_mem
+from hetero_mem import build_hetero_mem, encoders
 from utils import gen_vocab, gen_env_list
 
 import nengo
@@ -12,18 +12,16 @@ from nengo.dists import Exponential, Choice, Uniform
 import numpy as np
 import ipdb
 
-
 ## Learning rates
-pes_rate=0.01,
-voja_rate=0.005
+pes_rate = 0.001
+voja_rate = 0.001
 
 ## Generate the vocab
 rng = np.random.RandomState(0)
-D = 32
-number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
-               "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
+number_dict = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
+               "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9}
 
-# This should be set to 10 for the actual final test
+# This should be set to 9 for the actual final test
 max_sum = 9
 max_num = max_sum - 2
 
@@ -55,8 +53,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         ### Result circuit
         ## Incrementing memory
         slow_net.res_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
-                                                input_keys=input_keys, output_keys=output_keys,
-                                                wta_output=True)
+                                                   input_keys=input_keys, output_keys=output_keys,
+                                                   wta_output=True)
         ## Starting memory
         slow_net.count_res = MemNet(D, vocab, label="count_res")
         ## Increment result memory
@@ -68,8 +66,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         ### Total circuit
         ## Total memory
         slow_net.tot_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
-                                                input_keys=input_keys, output_keys=output_keys,
-                                                wta_output=True)
+                                                   input_keys=input_keys, output_keys=output_keys,
+                                                   wta_output=True)
         ## Starting memory
         slow_net.count_tot = MemNet(D, vocab, label="count_tot")
         ## Increment result memory
@@ -79,7 +77,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
                                                     wta_output=True)
 
         slow_net.ans_assoc = spa.AssociativeMemory(input_vocab=vocab,
-                                                 wta_output=True)
+                                                   wta_output=True)
 
         ## The memory that says when to stop incrementing
         slow_net.count_fin = MemNet(D, vocab, label="count_fin")
@@ -103,15 +101,15 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
         ## Increment for compare and input
         slow_net.gen_inc_assoc = spa.AssociativeMemory(input_vocab=vocab, output_vocab=vocab,
-                                input_keys=input_keys, output_keys=output_keys,
-                                wta_output=True)
-
+                                                       input_keys=input_keys, output_keys=output_keys,
+                                                       wta_output=True)
 
         main_actions = spa.Actions(
             ## If the input isn't blank, read it in
             on_input=
             "(dot(q1, %s) + dot(q2, %s))/2 "
-            "--> count_res = gen_inc_assoc, gen_inc_assoc = q1, count_tot = ONE, count_fin = fin_assoc, fin_assoc = 2.5*q2, op_state = RUN" % (join_num, join_num,),
+            "--> count_res = gen_inc_assoc, gen_inc_assoc = q1, count_tot = ONE, count_fin = fin_assoc, fin_assoc = 2.5*q2, op_state = RUN" % (
+            join_num, join_num,),
             ## If not done, prepare next increment
             cmp_fail=
             "dot(op_state, RUN) - tot_fin_simi + 1.25*comp_inc_res - comp_load_res"
@@ -139,8 +137,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         # TODO: Replace with preset
         thr = 0.25
         thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]),
-            intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
-            eval_points=Uniform(thr, 1.1), n_eval_points=5000)
+                                    intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
+                                    eval_points=Uniform(thr, 1.1), n_eval_points=5000)
         nengo.Connection(slow_net.comp_tot_fin.output, thresh_ens)
         nengo.Connection(thresh_ens, slow_net.tot_fin_simi.input)
 
@@ -149,9 +147,8 @@ with nengo.Network(label="Root Net", seed=0) as model:
         ans_boost.label = "ans_boost"
         nengo.Connection(slow_net.ans_assoc.output, ans_boost.A)
         nengo.Connection(thresh_ens, ans_boost.B,
-                         transform=np.ones((D,1)))
+                         transform=np.ones((D, 1)))
         nengo.Connection(ans_boost.output, slow_net.answer.input, transform=2.5)
-
 
         # had to put the assoc connections here because bugs
         # ideally they should be routable
@@ -175,12 +172,12 @@ with nengo.Network(label="Root Net", seed=0) as model:
         # This is usually calculated
         c = 0.51
         e = encoders(np.array(q_norm_list), K, rng)
-        fast_net.het_mem = build_hetero_mem(D*2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
+        fast_net.het_mem = build_hetero_mem(D * 2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
 
         ## Calculate the error from the environment and use it to drive the decoder learning
         # Create the error population
-        error = nengo.Ensemble(n_neurons*8, D)
-        nengo.Connection(env.learning, error.neurons, transform=[[10.0]]*n_neurons*8,
+        error = nengo.Ensemble(n_neurons * 8, D)
+        nengo.Connection(env.learning, error.neurons, transform=[[10.0]] * n_neurons * 8,
                          synapse=None)
         nengo.Connection(env.get_ans, error, transform=-1, synapse=None)
         nengo.Connection(fast_net.het_mem.output, error, synapse=None)
@@ -189,6 +186,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         # encoder learning should only happen while decoder learning is happening
         nengo.Connection(env.learning, fast_net.het_mem.in_conn.learning_rule,
                          synapse=None)
+
 
         ## Calculate the similarity of the input and let it drive the confidence
         def get_mag(t, x):
@@ -204,12 +202,12 @@ with nengo.Network(label="Root Net", seed=0) as model:
 
         ## Final answer components
         # Final answer output
-        #fast_net.speech = MemNet(D, vocab, label="speech")
+        # fast_net.speech = MemNet(D, vocab, label="speech")
         fast_net.speech = spa.State(D)
         # The final cleanup before outputting the answer
         fast_net.final_cleanup = spa.AssociativeMemory(input_vocab=vocab,
-                                                    threshold=0.2,
-                                                    wta_output=True)
+                                                       threshold=0.2,
+                                                       wta_output=True)
 
         ## connect the output of the memory to a state for easier manipulation
         fast_net.recall = spa.State(D)
@@ -237,72 +235,18 @@ with nengo.Network(label="Root Net", seed=0) as model:
     get_data = "probe"
     if get_data == "probe":
         p_keys = nengo.Probe(env.env_keys, synapse=None, sample_every=0.025)
-        #p_learning = nengo.Probe(env.learning, synapse=None, sample_every=0.025)
         p_error = nengo.Probe(error, synapse=0.005, sample_every=0.01)
-        p_conf = nengo.Probe(fast_net.conf.output, synapse=0.005, sample_every=0.025)
         p_recall = nengo.Probe(fast_net.recall.output, synapse=0.005, sample_every=0.01)
-        #p_final_ans = nengo.Probe(fast_net.final_cleanup.output, synapse=0.005, sample_every=0.01)
-        #p_speech = nengo.Probe(fast_net.speech.output, synapse=0.005, sample_every=0.01)
-
-        #p_bg_in = nengo.Probe(slow_net.bg_main.input, sample_every=0.01)
-        #p_bg_out = nengo.Probe(slow_net.bg_main.output, sample_every=0.01)
-
-        p_trans = nengo.Probe(fast_net.feedback_bg.output, sample_every=0.01)
 
         p_count_res = nengo.Probe(slow_net.count_res.mem.output, synapse=0.005, sample_every=0.005)
         p_count_fin = nengo.Probe(slow_net.count_fin.mem.output, synapse=0.005, sample_every=0.005)
         p_count_tot = nengo.Probe(slow_net.count_tot.mem.output, synapse=0.005, sample_every=0.005)
-        #p_ans_assoc = nengo.Probe(slow_net.ans_assoc.output, synapse=0.005, sample_every=0.01)
-        #p_thres_ens = nengo.Probe(thresh_ens, sample_every=0.01)
-
-    elif get_data == "file":
-        def file_func(filename, sample_every=0.01):
-            fi = open("data/%s" %filename, "w")
-            if sample_every != dt:
-                def f(t, x):
-                    if(round((t % sample_every ) * 1000) == 0):
-                        fi.write("%s\n" %x)
-            else:
-                def f(t, x):
-                    fi.write("%s\n" %x)
-            return f
-
-        p_keys = nengo.Node(file_func("p_keys"), size_in=2*D)
-        nengo.Connection(env.env_keys, p_keys, synapse=None)
-        p_learning = nengo.Node(file_func("p_learning"), size_in=1)
-        nengo.Connection(env.learning, p_learning, synapse=None)
-        p_error = nengo.Node(file_func("p_error"), size_in=D)
-        nengo.Connection(error, p_error, synapse=0.005)
-        p_conf = nengo.Node(file_func("p_conf"), size_in=1)
-        nengo.Connection(fast_net.conf.output, p_conf)
-        p_recall = nengo.Node(file_func("p_recall"), size_in=D)
-        nengo.Connection(fast_net.recall.output, p_recall, synapse=None)
-        p_final_ans = nengo.Node(file_func("p_final_ans"), size_in=D)
-        nengo.Connection(fast_net.final_cleanup.output, p_final_ans)
-        p_speech = nengo.Node(file_func("p_speech"), size_in=D)
-        nengo.Connection(fast_net.speech.mem.output, p_speech)
-
-        p_bg_in = nengo.Node(file_func("p_bg_in"), size_in=4)
-        nengo.Connection(slow_net.bg_main.input, p_bg_in)
-        p_bg_out = nengo.Node(file_func("p_bg_out"), size_in=4)
-        nengo.Connection(slow_net.bg_main.output, p_bg_out)
-
-        p_count_res = nengo.Node(file_func("p_count_res"), size_in=D)
-        nengo.Connection(slow_net.count_res.mem.output, p_count_res)
-        p_count_fin = nengo.Node(file_func("p_count_fin"), size_in=D)
-        nengo.Connection(slow_net.count_fin.mem.output, p_count_fin)
-        p_count_tot = nengo.Node(file_func("p_count_tot"), size_in=D)
-        nengo.Connection(slow_net.count_tot.mem.output, p_count_tot)
-        p_ans_assoc = nengo.Node(file_func("p_ans_assoc"), size_in=D)
-        nengo.Connection(slow_net.ans_assoc.output, p_ans_assoc)
-        p_thres_ens = nengo.Node(file_func("p_thres_ens"), size_in=1)
-        nengo.Connection(thresh_ens, p_thres_ens)
 
 print("Building")
 sim = nengo.Simulator(model, dt=dt)
 
 print("Running")
-while env.env_cls.questions_answered < 20:
+while env.env_cls.questions_answered < 60:
     sim.step()
     if env.env_cls.time_since_last_answer > 7.0:
         print("UH OH")
@@ -310,17 +254,12 @@ while env.env_cls.questions_answered < 20:
 
 ipdb.set_trace()
 
-#np.savez_compressed("data/paper4_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot], p_ans_assoc=sim.data[p_ans_assoc], p_thres_ens=sim.data[p_thres_ens])
 
-np.savez_compressed("data/paper5_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
+np.savez_compressed("data/paperslow_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin],
+                    p_count_tot=sim.data[p_count_tot])
 
+np.savez_compressed("data/paperslow_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall])
 
-np.savez_compressed("data/paper5_bg_data", p_bg_in=sim.data[p_bg_in], p_bg_out=sim.data[p_bg_out])
+np.savez_compressed("data/paperslow_time", t=sim.trange())
 
-#np.savez_compressed("data/paper4_learning_data", p_keys=sim.data[p_keys], p_learning=sim.data[p_learning], p_error=sim.data[p_error], p_conf=sim.data[p_conf], p_recall=sim.data[p_recall], p_final_ans=sim.data[p_final_ans], p_speech=sim.data[p_speech])
-
-np.savez_compressed("data/paper5_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall])
-
-np.savez_compressed("data/paper5_time", t=sim.trange())
-
-np.savez_compressed("data/vocab5", vocab=vocab.vectors)
+np.savez_compressed("data/vocabslow", vocab=vocab.vectors)
