@@ -79,6 +79,8 @@ print("Good tests")
 _, gtest_qs_nrm, gtest_ans = filt_addends([train_get, test_avoid], [train_avoid], cond="and")
 print("Fail tests")
 _, ftest_qs_nrm, ftest_ans = filt_addends([train_avoid], [train_get, test_avoid])
+ftest_qs_nrm[-1], ftest_qs_nrm[0] = ftest_qs_nrm[0], ftest_qs_nrm[-1]
+ftest_ans[-1], ftest_ans[0] = ftest_ans[0], ftest_ans[-1]
 run_time = (len(train_ans) + len(gtest_ans) + len(ftest_ans)) * period
 
 
@@ -97,20 +99,18 @@ def cycle_array(x, period, dt=0.001):
 
 def create_cc_func(train_list, gtest_list, ftest_list, size=D):
 
-    train_cycle = cycle_array(train_list, period)
     train_time = len(train_list) * period
-    gtest_cycle = cycle_array(gtest_list, period)
     gtest_time = train_time + len(gtest_list) * period
-    ftest_cycle = cycle_array(ftest_list, period)
     ftest_time = gtest_time + len(ftest_list) * period
 
     def cc(t):
+        i = int(round((t - dt) / dt)) / int(round(period/dt))
         if t < train_time:
-            return train_cycle(t)
+            return train_list[i]
         elif t < gtest_time:
-            return gtest_cycle(t)
+            return gtest_list[i - len(train_list)]
         elif t < ftest_time:
-            return ftest_cycle(t)
+            return ftest_list[i - len(train_list) - len(gtest_list)]
         else:
             return np.zeros(size)
 
@@ -168,7 +168,7 @@ if plot_res:
     plt.title("Result")
     plt.plot(spa.similarity(sim.data[p_recall], vocab))
     plt.legend(vocab.keys, loc='best')
-    plt.ylim(-1.5, 1.5)
+    plt.ylim(-0.5, 0.5)
 
     plt.figure()
     plt.title("Actual Answer")
@@ -179,7 +179,7 @@ if plot_res:
 
 ipdb.set_trace()
 # I should make a wrapper for doing this quickly
-base_name = "hetmem"
+base_name = "pred"
 np.savez_compressed("data/%s_learning_data" % base_name, p_keys=sim.data[p_keys], p_recall=sim.data[p_recall],
                     p_error=sim.data[p_error], p_weights=sim.data[p_weights], p_values=sim.data[p_values])
 np.savez_compressed("data/%s_learning_vocab" % base_name, keys=vocab.keys, vecs=vocab.vectors)
