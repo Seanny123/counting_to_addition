@@ -35,7 +35,7 @@ join_num = "+".join(number_list[0:max_num])
 q_list, q_norm_list, ans_list = gen_env_list(number_dict, number_list, vocab, max_sum)
 
 ## Generate specialised vocabs
-state_vocab = spa.Vocabulary(less_D)
+state_vocab = spa.Vocabulary(less_D, rng=rng)
 state_vocab.parse("RUN+NONE")
 
 with nengo.Network(label="Root Net", seed=0) as model:
@@ -259,7 +259,7 @@ print("Building")
 sim = nengo.Simulator(model, dt=dt)
 
 print("Running")
-while env.env_cls.questions_answered < 60:
+while env.env_cls.questions_answered < 100:
     sim.step()
     if env.env_cls.time_since_last_answer > 7.0:
         print("UH OH")
@@ -268,12 +268,10 @@ while env.env_cls.questions_answered < 60:
 ipdb.set_trace()
 
 
-np.savez_compressed("data/paperslow_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin],
-                    p_count_tot=sim.data[p_count_tot])
+np.savez_compressed("data/paperslow2_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
 
-np.savez_compressed("data/paperslow_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall],
-                    p_error=sim.data[p_error])
+np.savez_compressed("data/paperslow2_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall], p_error=sim.data[p_error])
 
-np.savez_compressed("data/paperslow_time", t=sim.trange())
+np.savez_compressed("data/paperslow2_time", t=sim.trange())
 
-np.savez_compressed("data/vocabslow", vocab=vocab.vectors)
+np.savez_compressed("data/vocabslow2", vocab=vocab.vectors)
