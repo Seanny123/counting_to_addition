@@ -7,8 +7,8 @@ from collections import OrderedDict
 import itertools
 
 
-def nearest(d):
-    p = nengo.dists.UniformHypersphere(surface=True).sample(d, d)
+def nearest(d, rng=np.random):
+    p = nengo.dists.UniformHypersphere(surface=True).sample(d, d, rng=rng)
     return np.dot(p, np.linalg.inv(sqrtm(np.dot(p.T, p))))
 
 
@@ -16,7 +16,9 @@ def gen_vocab(n_dict, n_range=9, dims=32, rng=None):
 
     vo = spa.Vocabulary(dims, rng=rng)
 
-    orth_vecs = nearest(dims)
+    if rng is None:
+        rng = np.random
+    orth_vecs = nearest(dims, rng=rng)
 
     number_ordered = OrderedDict(sorted(n_dict.items(), key=lambda t: t[1]))
     n_list = number_ordered.keys()
