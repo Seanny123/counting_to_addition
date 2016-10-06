@@ -233,6 +233,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.count_reset, slow_net.op_state.mem.reset, synapse=None)
 
     get_data = "probe"
+    debug_probes = True
     if get_data == "probe":
         p_keys = nengo.Probe(env.env_keys, synapse=None, sample_every=0.025)
         p_error = nengo.Probe(error, synapse=0.005, sample_every=0.01)
@@ -241,6 +242,17 @@ with nengo.Network(label="Root Net", seed=0) as model:
         p_count_res = nengo.Probe(slow_net.count_res.mem.output, synapse=0.005, sample_every=0.005)
         p_count_fin = nengo.Probe(slow_net.count_fin.mem.output, synapse=0.005, sample_every=0.005)
         p_count_tot = nengo.Probe(slow_net.count_tot.mem.output, synapse=0.005, sample_every=0.005)
+
+        if debug_probes:
+            p_final_ans = nengo.Probe(fast_net.final_cleanup.output, synapse=0.005, sample_every=0.01)
+            p_speech = nengo.Probe(fast_net.speech.output, synapse=0.005, sample_every=0.01)
+
+            p_bg_in = nengo.Probe(slow_net.bg_main.input, sample_every=0.01)
+            p_bg_out = nengo.Probe(slow_net.bg_main.output, sample_every=0.01)
+
+            p_ans_assoc = nengo.Probe(slow_net.ans_assoc.output, synapse=0.005, sample_every=0.01)
+            p_thres_ens = nengo.Probe(thresh_ens, sample_every=0.01)
+
 
 print("Building")
 sim = nengo.Simulator(model, dt=dt)
@@ -258,7 +270,8 @@ ipdb.set_trace()
 np.savez_compressed("data/paperslow_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin],
                     p_count_tot=sim.data[p_count_tot])
 
-np.savez_compressed("data/paperslow_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall])
+np.savez_compressed("data/paperslow_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall],
+                    p_error=sim.data[p_error])
 
 np.savez_compressed("data/paperslow_time", t=sim.trange())
 
