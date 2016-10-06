@@ -124,12 +124,16 @@ class AdderEnv():
             # check the answer is correct
             correct_text = self.sp_text(self.ans_list[self.indices[self.list_index]])
             ans_text = self.sp_text(x)
-            self.react_time.write("%s\n" %(self.time_since_last_answer))
+            self.react_time.write("%s\n" % self.time_since_last_answer)
             self.time_since_last_answer = 0.0
             self.questions_answered += 1
-            print("Question answered %s at %s" %(self.questions_answered, t))
-            self.fi.write("Question answered %s at %s\n" %(self.questions_answered, t))
-            self.fi.write("max_sim: %s\n" %max_sim)
+            q_ans = self.q_list[self.indices[self.list_index]]
+            addend_1 = self.sp_text(q_ans[:D])
+            addend_2 = self.sp_text(q_ans[D:])
+            print("Answered %s+%s" % (addend_1, addend_2))
+            print("Answered %s questions at %s" % (self.questions_answered, t))
+            self.fi.write("Question answered %s at %s\n" % (self.questions_answered, t))
+            self.fi.write("max_sim: %s\n" % max_sim)
             if correct_text != ans_text:
                 logging.debug("%s != %s" %(correct_text, ans_text))
                 print("%s != %s" %(correct_text, ans_text))

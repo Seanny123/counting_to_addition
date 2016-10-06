@@ -8,9 +8,11 @@ from utils import gen_vocab, gen_env_list
 
 import nengo
 from nengo import spa
-from nengo.dists import Exponential, Choice, Uniform
+from nengo.presets import ThresholdingEnsembles
 import numpy as np
 import ipdb
+
+thresh_conf = ThresholdingEnsembles(0.25)
 
 ## Learning rates
 pes_rate = 0.001
@@ -86,6 +88,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
         ## State for easier insertion into Actions after threshold
         slow_net.tot_fin_simi = spa.State(1)
         slow_net.comp_tot_fin = spa.Compare(D)
+
         # this network is only used during the on_input action, is it really necessary?
         slow_net.fin_assoc = spa.AssociativeMemory(input_vocab=vocab,
                                                    wta_output=True)
@@ -133,16 +136,14 @@ with nengo.Network(label="Root Net", seed=0) as model:
         slow_net.bg_main = spa.BasalGanglia(main_actions)
         slow_net.thal_main = spa.Thalamus(slow_net.bg_main)
 
-        ## Threshold preventing premature influence from comp_tot_fin similarity
-        # TODO: Replace with preset
-        thr = 0.25
-        thresh_ens = nengo.Ensemble(100, 1, encoders=Choice([[1]]),
-                                    intercepts=Exponential(scale=(1 - thr) / 5.0, shift=thr, high=1),
-                                    eval_points=Uniform(thr, 1.1), n_eval_points=5000)
+        ## Threshold preventing premature influence
+        with thresh_conf:
+            thresh_ens = nengo.Ensemble(100, 1)
+        # prevents from comp_tot_fin similarity into the action selection
         nengo.Connection(slow_net.comp_tot_fin.output, thresh_ens)
         nengo.Connection(thresh_ens, slow_net.tot_fin_simi.input)
 
-        ## Because the answer is being continuously output, we've got to threshold it by the comp_tot_fin similarity
+        # Because the answer is being continuously output, we've got to threshold it by comp_tot_fin
         ans_boost = nengo.networks.Product(200, dimensions=D, input_magnitude=2)
         ans_boost.label = "ans_boost"
         nengo.Connection(slow_net.ans_assoc.output, ans_boost.A)
