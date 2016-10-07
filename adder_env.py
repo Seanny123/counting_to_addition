@@ -131,12 +131,12 @@ class AdderEnv():
             addend_1 = self.sp_text(q_ans[:D])
             addend_2 = self.sp_text(q_ans[D:])
             print("Answered %s+%s" % (addend_1, addend_2))
-            print("Answered %s questions at %s" % (self.questions_answered, t))
+            print("Answered %s questions at %s\n" % (self.questions_answered, t))
             self.fi.write("Question answered %s at %s\n" % (self.questions_answered, t))
             self.fi.write("max_sim: %s\n" % max_sim)
             if correct_text != ans_text:
                 logging.debug("%s != %s" %(correct_text, ans_text))
-                print("%s != %s" %(correct_text, ans_text))
+                print("%s != %s\n" %(correct_text, ans_text))
                 self.fi.write("Error: %s\n" %t)
                 # This should just change the learning, not totally stop the simulation
                 #ipdb.set_trace()

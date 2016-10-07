@@ -16,10 +16,10 @@ thresh_conf = ThresholdingEnsembles(0.25)
 
 ## Learning rates
 pes_rate = 0.001
-voja_rate = 0.001
+voja_rate = 0.005
 
 ## Generate the vocab
-rng = np.random.RandomState(0)
+rng = np.random.RandomState(SEED)
 number_dict = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
                "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9}
 
@@ -27,7 +27,12 @@ number_dict = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
 max_sum = 9
 max_num = max_sum - 2
 
-number_list, vocab = gen_vocab(number_dict, max_num, D, rng)
+number_list, _ = gen_vocab(number_dict, max_num, D, rng)
+
+vo_load = np.load("data/good_slow_run/vocabslow.npz")
+vocab = spa.Vocabulary(10)
+for key, val in zip(number_list, vo_load['vocab']):
+    vocab.add(key, val)
 
 join_num = "+".join(number_list[0:max_num])
 
@@ -38,10 +43,10 @@ q_list, q_norm_list, ans_list = gen_env_list(number_dict, number_list, vocab, ma
 state_vocab = spa.Vocabulary(less_D, rng=rng)
 state_vocab.parse("RUN+NONE")
 
-with nengo.Network(label="Root Net", seed=0) as model:
+with nengo.Network(label="Root Net", seed=SEED) as model:
     env = create_adder_env(q_list, q_norm_list, ans_list, state_vocab.parse("NONE").v, vocab)
 
-    with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=0) as slow_net:
+    with spa.SPA(vocabs=[vocab, state_vocab], label="Count Net", seed=SEED) as slow_net:
         slow_net.q1 = spa.State(D, vocab=vocab)
         slow_net.q2 = spa.State(D, vocab=vocab)
 
@@ -166,7 +171,7 @@ with nengo.Network(label="Root Net", seed=0) as model:
     nengo.Connection(env.q_in[:D], slow_net.q2.input)
     nengo.Connection(env.op_in, slow_net.op_state.mem.input)
 
-    with spa.SPA(vocabs=[vocab], label="Fast Net", seed=0) as fast_net:
+    with spa.SPA(vocabs=[vocab], label="Fast Net", seed=SEED) as fast_net:
 
         ## Generate hetero mem
         K = 400
@@ -259,7 +264,7 @@ print("Building")
 sim = nengo.Simulator(model, dt=dt)
 
 print("Running")
-while env.env_cls.questions_answered < 100:
+while env.env_cls.questions_answered < 1175:
     sim.step()
     if env.env_cls.time_since_last_answer > 7.0:
         print("UH OH")
@@ -268,10 +273,8 @@ while env.env_cls.questions_answered < 100:
 ipdb.set_trace()
 
 
-np.savez_compressed("data/paperslow2_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
+np.savez_compressed("data/paperslowlong_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
 
-np.savez_compressed("data/paperslow2_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall], p_error=sim.data[p_error])
+np.savez_compressed("data/paperslowlong_learning_data", p_keys=sim.data[p_keys], p_recall=sim.data[p_recall], p_error=sim.data[p_error])
 
-np.savez_compressed("data/paperslow2_time", t=sim.trange())
-
-np.savez_compressed("data/vocabslow2", vocab=vocab.vectors)
+np.savez_compressed("data/vocabslowlong", vals=vocab.keys, vecs=vocab.vectors)
