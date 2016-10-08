@@ -23,11 +23,13 @@ def encoders(pointers, k, rng):
     print(d)
     return dist.sample(m*k, d, rng=rng).reshape(m, k, d)
 
+
 class NullSolver(nengo.solvers.Lstsq):
     """Zero decoder solver."""
 
     def __call__(self, A, Y, rng=None, E=None):
         return np.zeros((A.shape[1], Y.shape[1])), {}
+
 
 def build_hetero_mem(in_d, out_d, encoders, intercept, pes_rate=0.01, pes_tau=1e-16, voja_rate=0.005, voja_tau=None):
     """Heteroassociative memory builder"""
@@ -46,18 +48,43 @@ def build_hetero_mem(in_d, out_d, encoders, intercept, pes_rate=0.01, pes_tau=1e
         net.output = nengo.Node(size_in=out_d, label="output")
 
         ## The ensemble where the actual learning happens
-        ens = nengo.Ensemble(
+        net.ens = nengo.Ensemble(
             n, d, encoders=ens_encoders, intercepts=[intercept]*n,
             eval_points=[ens_encoders[i] for i in range(0, n, k)],
             label="ens")
+        net.voja_rule = nengo.Voja(voja_tau, learning_rate=voja_rate)
         net.in_conn = nengo.Connection(
-            net.input, ens, synapse=None,
+            net.input, net.ens, synapse=None,
             learning_rule_type=nengo.Voja(voja_tau, learning_rate=voja_rate))
 
         pes_rule = nengo.PES(learning_rate=pes_rate, pre_tau=pes_tau)
         net.out_conn = nengo.Connection(
-            ens, net.output, function=lambda x: np.zeros(out_d),
+            net.ens, net.output, function=lambda x: np.zeros(out_d),
             solver=NullSolver(), synapse=None,
+            learning_rule_type=pes_rule)
+
+    return net
+
+
+def rebuild_hetero_mem(in_w, out_w, prev_ens, pes_rate=0.01, pes_tau=1e-16, voja_rate=0.005, voja_tau=None):
+    """Heteroassociative memory builder"""
+
+    with nengo.Network(seed=SEED) as net:
+        net.input = nengo.Node(size_in=in_d, label="input")
+        net.output = nengo.Node(size_in=out_d, label="output")
+
+        # The ensemble where the actual learning happens
+        ens = nengo.Ensemble(
+            prev_ens.n_neurons, prev_ens.dimensions,
+            encoders=prev_ens.encoders, intercepts=prev_ens.intercepts,
+            eval_points=prev_ens.intercepts, label="ens")
+        net.in_conn = nengo.Connection(
+            net.input, ens.neurons, transform=in_w, synapse=None,
+            learning_rule_type=nengo.Voja(voja_tau, learning_rate=voja_rate))
+
+        pes_rule = nengo.PES(learning_rate=pes_rate, pre_tau=pes_tau)
+        net.out_conn = nengo.Connection(
+            ens.neurons, net.output, transform=out_w, synapse=None,
             learning_rule_type=pes_rule)
 
     return net
