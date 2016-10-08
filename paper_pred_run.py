@@ -17,7 +17,7 @@ import numpy as np
 
 import ipdb
 
-plot_res = True
+plot_res = False
 
 # Learning rates
 pes_rate = 0.01
@@ -81,7 +81,9 @@ print("Fail tests")
 _, ftest_qs_nrm, ftest_ans = filt_addends([train_avoid], [train_get, test_avoid])
 ftest_qs_nrm[-1], ftest_qs_nrm[0] = ftest_qs_nrm[0], ftest_qs_nrm[-1]
 ftest_ans[-1], ftest_ans[0] = ftest_ans[0], ftest_ans[-1]
-run_time = (len(train_ans) + len(gtest_ans) + len(ftest_ans)) * period
+
+train_mult = 3
+run_time = (len(train_ans) * train_mult + len(gtest_ans) + len(ftest_ans)) * period
 
 
 def cycle_array(x, period, dt=0.001):
@@ -99,62 +101,76 @@ def cycle_array(x, period, dt=0.001):
 
 def create_cc_func(train_list, gtest_list, ftest_list, size=D):
 
-    train_time = len(train_list) * period
+    train_time = (len(train_list) * period) * train_mult
     gtest_time = train_time + len(gtest_list) * period
     ftest_time = gtest_time + len(ftest_list) * period
 
     def cc(t):
         i = int(round((t - dt) / dt)) / int(round(period/dt))
         if t < train_time:
-            return train_list[i]
+            return train_list[i % len(train_list)]
         elif t < gtest_time:
-            return gtest_list[i - len(train_list)]
+            return gtest_list[i - len(train_list) * train_mult]
         elif t < ftest_time:
-            return ftest_list[i - len(train_list) - len(gtest_list)]
+            return ftest_list[i - len(train_list) * train_mult - len(gtest_list)]
         else:
             return np.zeros(size)
 
     return cc
 
 
-with spa.SPA(vocabs=[vocab], label="Fast Net", seed=0) as model:
-    env_keys = nengo.Node(create_cc_func(train_qs_nrm, gtest_qs_nrm, ftest_qs_nrm, 2*D))
-    env_values = nengo.Node(create_cc_func(train_ans, gtest_ans, ftest_ans, D))
+run_num = 25
+sample_every = 0.01
+step_num = int(run_time / sample_every)
+key_res = np.zeros((run_num, step_num, D*2))
+val_res = np.zeros((run_num, step_num, D))
+error_res = np.zeros((run_num, int(run_time / dt)))
+recall_res = np.zeros((run_num, step_num, D))
 
-    recall = nengo.Node(size_in=D)
-    learning = nengo.Node([0])
 
-    ## Generate hetero mem
-    K = 400
-    # This is usually calculated
-    c = 0.51
-    e = encoders(np.array(q_norm_list), K, rng)
-    het_mem = build_hetero_mem(D*2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
+for seed_val in range(0, run_num):
+    with spa.SPA(vocabs=[vocab], label="Fast Net", seed=seed_val) as model:
+        env_keys = nengo.Node(create_cc_func(train_qs_nrm, gtest_qs_nrm, ftest_qs_nrm, 2*D))
+        env_values = nengo.Node(create_cc_func(train_ans, gtest_ans, ftest_ans, D))
 
-    nengo.Connection(env_keys, het_mem.input, synapse=None)
-    nengo.Connection(het_mem.output, recall)
+        recall = nengo.Node(size_in=D)
+        learning = nengo.Node([0])
 
-    # Create the error population
-    error = nengo.Ensemble(n_neurons*8, D)
-    nengo.Connection(learning, error.neurons, transform=[[10.0]]*n_neurons*8,
-                     synapse=None)
-    nengo.Connection(learning, het_mem.in_conn.learning_rule, synapse=None)
+        # Generate hetero mem
+        K = 400
+        # This is usually calculated
+        c = 0.51
+        e = encoders(np.array(q_norm_list), K, rng)
+        het_mem = build_hetero_mem(D*2, D, e, c, pes_rate=pes_rate, voja_rate=voja_rate)
 
-    # Calculate the error and use it to drive the PES rule
-    nengo.Connection(env_values, error, transform=-1, synapse=None)
-    nengo.Connection(recall, error, synapse=None)
-    nengo.Connection(error, het_mem.out_conn.learning_rule)
+        nengo.Connection(env_keys, het_mem.input, synapse=None)
+        nengo.Connection(het_mem.output, recall)
 
-    # Setup probes
-    p_keys = nengo.Probe(env_keys, synapse=None, sample_every=0.01)
-    p_values = nengo.Probe(env_values, synapse=None, sample_every=0.01)
-    p_learning = nengo.Probe(learning, synapse=None, sample_every=0.01)
-    p_error = nengo.Probe(error, synapse=0.01)
-    p_recall = nengo.Probe(recall, synapse=None, sample_every=0.01)
-    p_weights = nengo.Probe(het_mem.out_conn, 'weights', synapse=None, sample_every=0.01)
+        # Create the error population
+        error = nengo.Ensemble(n_neurons*8, D)
+        nengo.Connection(learning, error.neurons, transform=[[10.0]]*n_neurons*8,
+                         synapse=None)
+        nengo.Connection(learning, het_mem.in_conn.learning_rule, synapse=None)
 
-sim = nengo.Simulator(model, dt=dt)
-sim.run(run_time)
+        # Calculate the error and use it to drive the PES rule
+        nengo.Connection(env_values, error, transform=-1, synapse=None)
+        nengo.Connection(recall, error, synapse=None)
+        nengo.Connection(error, het_mem.out_conn.learning_rule)
+
+        # Setup probes
+        p_keys = nengo.Probe(env_keys, synapse=None, sample_every=sample_every)
+        p_values = nengo.Probe(env_values, synapse=None, sample_every=sample_every)
+        p_error = nengo.Probe(error, synapse=0.01)
+        p_recall = nengo.Probe(recall, synapse=None, sample_every=sample_every)
+
+    sim = nengo.Simulator(model, dt=dt)
+    sim.run(run_time)
+
+    key_res[seed_val] = sim.data[p_keys]
+    val_res[seed_val] = sim.data[p_values]
+    error_res[seed_val] = np.sum(np.abs(sim.data[p_error]), axis=1)
+    recall_res[seed_val] = sim.data[p_recall]
+
 
 if plot_res:
     import matplotlib.pyplot as plt
@@ -168,18 +184,18 @@ if plot_res:
     plt.title("Result")
     plt.plot(spa.similarity(sim.data[p_recall], vocab))
     plt.legend(vocab.keys, loc='best')
-    plt.ylim(-0.5, 0.5)
+    plt.ylim(-0.5, 1.1)
 
     plt.figure()
     plt.title("Actual Answer")
     plt.plot(spa.similarity(sim.data[p_values], vocab))
-    plt.ylim(-1.5, 1.5)
+    plt.ylim(-0.5, 1.1)
 
     plt.show()
 
 ipdb.set_trace()
 # I should make a wrapper for doing this quickly
-base_name = "pred"
-np.savez_compressed("data/%s_learning_data" % base_name, p_keys=sim.data[p_keys], p_recall=sim.data[p_recall],
-                    p_error=sim.data[p_error], p_weights=sim.data[p_weights], p_values=sim.data[p_values])
+base_name = "multpred2"
+np.savez_compressed("data/%s_learning_data" % base_name, p_keys=key_res, p_recall=recall_res,
+                    p_error=error_res, p_values=val_res)
 np.savez_compressed("data/%s_learning_vocab" % base_name, keys=vocab.keys, vecs=vocab.vectors)
