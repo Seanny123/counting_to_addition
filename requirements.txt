@@ -1,0 +1,5 @@
+nengo=2.1.0
+matplotlib
+seaborn
+pandas
+jupyter
