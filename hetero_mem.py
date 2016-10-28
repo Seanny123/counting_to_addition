@@ -1,6 +1,5 @@
 import numpy as np
 import nengo
-import ipdb
 
 # Note that D is equal to the dimensions of the addend
 from constants import *

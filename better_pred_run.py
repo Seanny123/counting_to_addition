@@ -17,8 +17,6 @@ from nengo import spa
 import numpy as np
 import pandas as pd
 
-import ipdb
-
 pd_columns = ["key", "val", "error", "confidence"]
 pd_res = []
 
@@ -229,7 +227,6 @@ for seed_val, t_n in itertools.product(range(0, run_num), range(test_num)):
     ])
     print("Finished run %s of test %s" % (seed_val, t_n))
 
-ipdb.set_trace()
 # Save as Pandas dataframe
 base_name = "multpred2"
 df = pd.DataFrame(pd_res, columns=pd_columns)

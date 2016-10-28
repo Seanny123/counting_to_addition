@@ -270,8 +270,6 @@ while env.env_cls.questions_answered < 1175:
         print("UH OH")
         ipdb.set_trace()
 
-ipdb.set_trace()
-
 
 np.savez_compressed("data/paperslowlong_count_data", p_count_res=sim.data[p_count_res], p_count_fin=sim.data[p_count_fin], p_count_tot=sim.data[p_count_tot])
 

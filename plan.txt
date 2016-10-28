@@ -1,3 +1,0 @@
-- So when fast-answer takes over for too long, the reset fails because speech goes way too damn high. So I guess we'll have to just increase the chill time?
-- Put the two circuit together and make a plot of when the switch happens
-- Make plots and insert them

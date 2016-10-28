@@ -3,12 +3,11 @@ from constants import *
 import nengo
 from nengo import spa
 import numpy as np
-import ipdb
 
 from random import shuffle
 import logging
 
-logging.basicConfig(filename='env.log',level=logging.DEBUG)
+logging.basicConfig(filename='env.log', level=logging.DEBUG)
 
 
 def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0.3):
@@ -137,9 +136,7 @@ class AdderEnv():
             if correct_text != ans_text:
                 logging.debug("%s != %s" %(correct_text, ans_text))
                 print("%s != %s\n" %(correct_text, ans_text))
-                self.fi.write("Error: %s\n" %t)
-                # This should just change the learning, not totally stop the simulation
-                #ipdb.set_trace()
+                self.fi.write("Error: %s\n" % t)
 
         # sustain the answer for training purposes
 
@@ -151,11 +148,11 @@ class AdderEnv():
                 self.ans_arrive = 0.0
                 self.learning = -1
                 self.reset = True
-                self.fi.write("Turning off: %s\n" %t)
+                self.fi.write("Turning off: %s\n" % t)
 
             if max_sim < 0.1:
-                self.fi.write("Next question: %s\n" %t)
-                self.fi.write("max_sim: %s\n" %max_sim)
+                self.fi.write("Next question: %s\n" % t)
+                self.fi.write("max_sim: %s\n" % max_sim)
                 self.time = 0.0
                 self.train = False
                 self.reset = False

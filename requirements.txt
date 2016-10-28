@@ -1,0 +1,7 @@
+scipy>=0.18
+nengo=2.1.0
+numpy>=1.11
+ipdb
+seaborn>=0.7
+pandas>=0.18
+jupyter>=4.0.0
