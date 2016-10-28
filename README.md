@@ -6,6 +6,9 @@ Code for the paper "[Improving with Practice: A Neural Model of Mathematical Dev
 Python is required to run these scripts. The scripts were written in Python 2, but should work in Python 3.
 The Python packages required can be installed with `pip install -r requirements.txt`.
 
+The specific version of the Nengo Python package was
+[ceaf387](https://github.com/nengo/nengo/tree/ceaf387ada525c2f0e84ea91214d90cc99763d7c).
+
 ## Running the networks
 
 - `with_feedback.py` is the final full-network version

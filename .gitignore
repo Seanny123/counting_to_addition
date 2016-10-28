@@ -10,7 +10,7 @@ dist
 nengo.simulator.logs/
 nengo.simulator.analytics/
 nengo.simulator.plots/
-data/
+.idea/
 log.txt
 .ipynb_checkpoints/
 .cache
@@ -21,3 +21,6 @@ Vagrantfile
 env.log
 
 *.class
+
+data/
+!data/.gitkeep
