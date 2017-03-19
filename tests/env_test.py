@@ -1,6 +1,4 @@
 import nengo
-import numpy as np
-import ipdb
 
 from adder_env import create_adder_env
 from constants import *
@@ -21,31 +19,31 @@ with nengo.Network(label="test") as model:
 
     def ans_func(t):
         if t < 0.1:
-            return (0, 0)
+            return 0, 0
         elif t < 0.45:
-            return (-1,1)
+            return -1, 1
         elif t < 0.6:
-            return (0, 0)
+            return 0, 0
         elif t < 0.95:
-            return (1,-1)
+            return 1, -1
         elif t < 1.0:
-            return (0, 0)
+            return 0, 0
         elif t < 1.35:
-            return (1, 1)
+            return 1, 1
         elif t < 1.8:
-            return (0, 0)
+            return 0, 0
         elif t < 2.15:
-            return (-1, -1)
+            return -1, -1
         elif t < 2.2:
-            return (0, 0)
+            return 0, 0
         elif t < 2.55:
             return ans_list[env.env_cls.list_index + 1]
         elif t < 2.6:
-            return (0, 0)
+            return 0, 0
         elif t < 2.95:
             return ans_list[env.env_cls.list_index]
         else:
-            return (0, 0)
+            return 0, 0
 
     # answers can be given at different intervals
     ans_in = nengo.Node(ans_func)

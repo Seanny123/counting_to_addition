@@ -1,10 +1,5 @@
-# no voja, single concatenated vector input
-# used for making plot showing decoders continually switching back and forth
+# network setup to make data for prediction figure in paper
 
-# make sure it messes up in the way you expect
-# get the decoder data
-# try to show the decoder values changing
-# - look for decoders who's values change with every question
 import itertools
 import datetime
 

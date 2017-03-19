@@ -16,12 +16,13 @@ import ipdb
 ## Generate the vocab awkwardly
 rng = np.random.RandomState(0)
 vocab = spa.Vocabulary(D, rng=rng)
-number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
-               "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
+number_dict = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
+               "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9}
 number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 # This should be set to 10 for the actual final test
 number_range = 4
 number_list = number_ordered.keys()
+
 
 def nearest(d):
     from scipy.linalg import sqrtm

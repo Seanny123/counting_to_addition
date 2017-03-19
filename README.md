@@ -1,5 +1,5 @@
 # Progressing from Counting to Addition
-Code for the paper "[Improving with Practice: A Neural Model of Mathematical Development](http://compneuro.uwaterloo.ca/files/publications/aubin.2016.pdf)" and forthcoming eponymous paper in TopiCS. Presentation slides for the CogSci2016 talk can be [found here](https://1drv.ms/p/s!Auhg6REoCX4GgWpkZHvmFBIN4FWV).
+Code for the paper "[Improving with Practice: A Neural Model of Mathematical Development](http://compneuro.uwaterloo.ca/files/publications/aubin.2016.pdf)" and the [eponymous paper in TopiCS](http://compneuro.uwaterloo.ca/files/publications/aubin.2016a.pdf). Presentation slides for the CogSci2016 talk can be [found here](https://1drv.ms/p/s!Auhg6REoCX4GgWpkZHvmFBIN4FWV).
 
 ## Requirements
 
@@ -20,4 +20,13 @@ The specific version of the Nengo Python package was
 
 All analysis was performed in Jupyter notebooks, which end with the file extension `ipynb`.
 These can be opened by running `jupyter notebook BLAH.ipynb` where `BLAH.ipynb` is the name of the notebook you
-desire to view.
+ desire to view. However, at this time, all the files required to duplicate the analysis seen in the
+ paper are not currently available, due to some bad backing up on my part. I'm currently working on retrieving
+ the files from my old desktop.
+ 
+## To-do, so I can be the real Open Science hero I dream of:
+- Clean up the data files and acquire missing files
+- Clean up the creation of the data files and logs
+- Make applicable scripts compatible with the Nengo version of PyTry, instead of commenting out chunks of code
+ whenever they are run in Nengo GUI.
+

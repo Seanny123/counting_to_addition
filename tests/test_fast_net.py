@@ -1,4 +1,4 @@
-# final full network version
+# final full network version of the "fast net"
 
 import nengo
 from nengo import spa
@@ -11,17 +11,17 @@ from hetero_mem import *
 import numpy as np
 from collections import OrderedDict
 import itertools
-import ipdb
 
 ## Generate the vocab
 rng = np.random.RandomState(0)
 vocab = spa.Vocabulary(D, rng=rng)
-number_dict = {"ONE":1, "TWO":2, "THREE":3, "FOUR":4, "FIVE":5,
-               "SIX":6, "SEVEN":7, "EIGHT":8, "NINE":9}
+number_dict = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
+               "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9}
 number_ordered = OrderedDict(sorted(number_dict.items(), key=lambda t: t[1]))
 # This should be set to 10 for the actual final test
 number_range = 4
 number_list = number_ordered.keys()
+
 
 def nearest(d):
     from scipy.linalg import sqrtm
@@ -130,11 +130,12 @@ with nengo.Network(label="Root Net", seed=0) as model:
         )
         fast_net.feedback_bg = spa.BasalGanglia(feedback_actions)
         fast_net.feedback_thal = spa.Thalamus(fast_net.feedback_bg)
-    
+
     with spa.SPA(vocabs=[vocab], label="Slow Net", seed=0) as slow_net:
         slow_net.fake_answer = spa.State(D)
         slow_net.q1 = spa.State(D, vocab=vocab)
         slow_net.q2 = spa.State(D, vocab=vocab)
+
         def fake_func(t):
             if 0.6 > t > 0.5:
                 return "FOUR"

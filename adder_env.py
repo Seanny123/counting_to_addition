@@ -1,7 +1,6 @@
 from constants import *
 
 import nengo
-from nengo import spa
 import numpy as np
 
 from random import shuffle
@@ -27,7 +26,7 @@ def create_adder_env(q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur=0
     return env
 
 
-class AdderEnv():
+class AdderEnv(object):
 
     def __init__(self, q_list, q_norm_list, ans_list, op_val, num_vocab, ans_dur, filename="paper5_reactions.txt"):
         ## Bunch of time constants

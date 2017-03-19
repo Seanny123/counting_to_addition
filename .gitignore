@@ -20,7 +20,8 @@ wintest.sh
 Vagrantfile
 env.log
 
-*.class
+*.png
+*.pdf
 
 data/
 !data/.gitkeep

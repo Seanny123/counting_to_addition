@@ -4,6 +4,7 @@ from nengo.networks.workingmemory import InputGatedMemory as WM
 from nengo.spa.module import Module
 import numpy as np
 
+
 class MemNet(Module):
     def __init__(self, d, mem_vocab, label=None, seed=None, add_to_container=None):
         super(MemNet, self).__init__(label, seed, add_to_container)

@@ -29,6 +29,10 @@ max_num = max_sum - 2
 
 number_list, _ = gen_vocab(number_dict, max_num, D, rng)
 
+# load a vocabulary that previously has few errors
+# Ideally, this network would work with every vocabulary, but sometimes the vectors generated are too close together
+# in that case, the manually tuned basal ganglia weights won't work anymore.
+# Future work will include learning the basal ganglia weights over time so they work with every possible vocabulary
 vo_load = np.load("data/good_slow_run/vocabslow.npz")
 vocab = spa.Vocabulary(10)
 for key, val in zip(number_list, vo_load['vocab']):
