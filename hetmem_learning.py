@@ -1,10 +1,5 @@
-# no voja, single concatenated vector input
+# single concatenated vector input with voja
 # used for making plot showing decoders continually switching back and forth
-
-# make sure it messes up in the way you expect
-# get the decoder data
-# try to show the decoder values changing
-# - look for decoders who's values change with every question
 
 from utils import gen_env_list, gen_vocab
 from hetero_mem import build_hetero_mem, encoders
