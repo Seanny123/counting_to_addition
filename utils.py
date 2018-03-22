@@ -21,7 +21,7 @@ def gen_vocab(n_dict, n_range=9, dims=32, rng=None):
     orth_vecs = nearest(dims, rng=rng)
 
     number_ordered = OrderedDict(sorted(n_dict.items(), key=lambda t: t[1]))
-    n_list = number_ordered.keys()
+    n_list = list(number_ordered.keys())
 
     for i in range(n_range):
         print(n_list[i])
